@@ -123,6 +123,7 @@ describe("Fork gmx basic", () => {
       toGmxUsd("5000"), // _acceptablePrice
       executionFee, // _executionFee
       ethers.constants.HashZero, // _referralCode
+      ethers.constants.AddressZero, // _callbackTarget
       { value: executionFee }
     )
 
@@ -299,7 +300,7 @@ describe("Fork gmx basic", () => {
     await usdc.connect(trader1).transfer(gmxVault.address, toUnit("2000", 6))
     await gmxVault.connect(trader1).swap(usdc.address, weth.address, trader1.address)
     expect(await usdc.balanceOf(trader1.address)).to.eq(toUnit("0", 6))
-    expect(await weth.balanceOf(trader1.address)).to.eq(toWei("1.523076744000000000"))
+    expect(await weth.balanceOf(trader1.address)).to.eq(toWei("1.537154688000000000"))
   })
 
   it("fr 24 hours later", async () => {
@@ -311,12 +312,12 @@ describe("Fork gmx basic", () => {
     // read fr
     {
       const [fundingRateInfo] = await Promise.all([gmxReader.getFundingRates(VaultAddress, weth.address, [wethAddress, wbtcAddress, usdcAddress])])
-      expect(fundingRateInfo[0 * fundingRatePropsLength + 0]).to.eq("36")
-      expect(fundingRateInfo[1 * fundingRatePropsLength + 0]).to.eq("7")
-      expect(fundingRateInfo[2 * fundingRatePropsLength + 0]).to.eq("15")
-      expect(fundingRateInfo[0 * fundingRatePropsLength + 1]).to.eq("311973")
-      expect(fundingRateInfo[1 * fundingRatePropsLength + 1]).to.eq("242644")
-      expect(fundingRateInfo[2 * fundingRatePropsLength + 1]).to.eq("194560")
+      expect(fundingRateInfo[0 * fundingRatePropsLength + 0]).to.eq("17")
+      expect(fundingRateInfo[1 * fundingRatePropsLength + 0]).to.eq("16")
+      expect(fundingRateInfo[2 * fundingRatePropsLength + 0]).to.eq("24")
+      expect(fundingRateInfo[0 * fundingRatePropsLength + 1]).to.eq("329642")
+      expect(fundingRateInfo[1 * fundingRatePropsLength + 1]).to.eq("255642")
+      expect(fundingRateInfo[2 * fundingRatePropsLength + 1]).to.eq("212231")
     }
 
     // 24 hours later. 12:00:08 UTC -> 12:00:08
@@ -330,12 +331,12 @@ describe("Fork gmx basic", () => {
     // read fr
     {
       const [fundingRateInfo] = await Promise.all([gmxReader.getFundingRates(VaultAddress, weth.address, [wethAddress, wbtcAddress, usdcAddress])])
-      expect(fundingRateInfo[0 * fundingRatePropsLength + 0]).to.eq("36")
-      expect(fundingRateInfo[1 * fundingRatePropsLength + 0]).to.eq("7")
-      expect(fundingRateInfo[2 * fundingRatePropsLength + 0]).to.eq("15")
-      expect(fundingRateInfo[0 * fundingRatePropsLength + 1]).to.eq("312853")
-      expect(fundingRateInfo[1 * fundingRatePropsLength + 1]).to.eq("242833")
-      expect(fundingRateInfo[2 * fundingRatePropsLength + 1]).to.eq("194920")
+      expect(fundingRateInfo[0 * fundingRatePropsLength + 0]).to.eq("17")
+      expect(fundingRateInfo[1 * fundingRatePropsLength + 0]).to.eq("16")
+      expect(fundingRateInfo[2 * fundingRatePropsLength + 0]).to.eq("24")
+      expect(fundingRateInfo[0 * fundingRatePropsLength + 1]).to.eq("330050")
+      expect(fundingRateInfo[1 * fundingRatePropsLength + 1]).to.eq("256039")
+      expect(fundingRateInfo[2 * fundingRatePropsLength + 1]).to.eq("212828")
     }
   })
 })
