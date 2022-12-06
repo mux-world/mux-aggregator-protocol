@@ -1,0 +1,38 @@
+{
+  "name": "mux-aggregator-protocol",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx hardhat compile",
+    "size": "npx hardhat size-contracts",
+    "test": "npx hardhat test"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/mux-world/mux-aggregator-protocol",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
+    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@nomiclabs/hardhat-etherscan": "^3.1.0",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@typechain/ethers-v5": "^10.1.0",
+    "@typechain/hardhat": "^6.1.3",
+    "@types/chai": "^4.3.3",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.7.18",
+    "chai": "^4.3.6",
+    "ethers": "^5.7.1",
+    "hardhat": "^2.11.2",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.1.0",
+    "typescript": "^4.8.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "4.7.0",
+    "@openzeppelin/contracts-upgradeable": "4.7.0",
+    "ethereum-waffle": "^3.4.4",
+    "solidity-coverage": "^0.7.20",
+    "storagelens": "^0.0.2"
+  }
+}
