@@ -1,0 +1,36 @@
+{
+  "ProxyFactory__implementation": {
+    "type": "plain",
+    "name": "ProxyFactory",
+    "address": "0x4788b133D6f56B95bF3C02C9f656B9Ee199f87Ff",
+    "deployedAt": 42082388
+  },
+  "ProxyFactory": {
+    "type": "upgradeable",
+    "name": "ProxyFactory",
+    "address": "0x2ff2f1D9826ae2410979ae19B88c361073Ab0918",
+    "dependencies": {
+      "admin": "0x73c5955dbB7a667e05da5fE7b8798c0fd4cE8E16",
+      "implementation": "0x4788b133D6f56B95bF3C02C9f656B9Ee199f87Ff"
+    },
+    "deployedAt": 30795158
+  },
+  "GmxAdapter": {
+    "type": "plain",
+    "name": "GmxAdapter",
+    "address": "0x81CE58B23FC61a78C38574F760d8D77530f1EF9D",
+    "deployedAt": 42436832
+  },
+  "Reader": {
+    "type": "plain",
+    "name": "Reader",
+    "address": "0x5E250d7fd315a55B0c53281Dfd03A9b91327701F",
+    "deployedAt": 42084530
+  },
+  "LibGmx": {
+    "type": "plain",
+    "name": "LibGmx",
+    "address": "0x9DAA92FCa3f3F78321f2e69C04cc8CA19927899e",
+    "deployedAt": 42436819
+  }
+}

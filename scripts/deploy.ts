@@ -49,6 +49,7 @@ async function init(deployer: Deployer) {
     const proxyAdminAddress = "0x73c5955dbB7a667e05da5fE7b8798c0fd4cE8E16" // hardwallet, temp
     // const factory = await deployer.deployUpgradeableOrSkip("ProxyFactory", "ProxyFactory", proxyAdminAddress)
     const factory = await deployer.getDeployedContract("ProxyFactory", "ProxyFactory")
+
     const aggregatorImp = await deployer.deployOrSkip("GmxAdapter", "GmxAdapter", wethAddress)
     const reader = await deployer.deployOrSkip("Reader", "Reader", factory.address, VaultAddress, wethAddress, USDGAddress)
 
