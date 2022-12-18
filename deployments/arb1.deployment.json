@@ -2,7 +2,7 @@
   "ProxyFactory__implementation": {
     "type": "plain",
     "name": "ProxyFactory",
-    "address": "0x4788b133D6f56B95bF3C02C9f656B9Ee199f87Ff",
+    "address": "0xe669424c3b60F8611434C03D2Bf211b91A54240D",
     "deployedAt": 42082388
   },
   "ProxyFactory": {
@@ -11,7 +11,7 @@
     "address": "0x2ff2f1D9826ae2410979ae19B88c361073Ab0918",
     "dependencies": {
       "admin": "0x73c5955dbB7a667e05da5fE7b8798c0fd4cE8E16",
-      "implementation": "0x4788b133D6f56B95bF3C02C9f656B9Ee199f87Ff"
+      "implementation": "0xe669424c3b60F8611434C03D2Bf211b91A54240D"
     },
     "deployedAt": 30795158
   },

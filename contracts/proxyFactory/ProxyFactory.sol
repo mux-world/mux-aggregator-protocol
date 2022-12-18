@@ -70,10 +70,6 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         return _keepers[keeper];
     }
 
-    function setReferralManager(address referralManager) external {
-        _referralManager = referralManager;
-    }
-
     function getConfigVersions(uint256 projectId, address assetToken)
         external
         view
@@ -120,6 +116,10 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
     }
 
     // =========================== management interfaces ===========================
+    function setReferralManager(address referralManager) external onlyOwner {
+        _referralManager = referralManager;
+    }
+
     function setBorrowConfig(
         uint256 projectId,
         address assetToken,
