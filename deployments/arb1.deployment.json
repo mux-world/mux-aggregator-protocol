@@ -1,36 +1,48 @@
 {
+  "ProxyAdmin": {
+    "type": "plain",
+    "name": "ProxyAdmin",
+    "address": "0xE52d9a3CBA458832A65cfa9FC8a74bacAbdeB32A",
+    "deployedAt": 42082388
+  },
+  "TimelockControllerUpgradeable": {
+    "type": "upgradeable",
+    "name": "TimelockControllerUpgradeable",
+    "address": "0xc2D28778447B1B0B2Ae3aD17dC6616b546FBBeBb",
+    "deployedAt": 18300188
+  },
   "ProxyFactory__implementation": {
     "type": "plain",
-    "name": "ProxyFactory",
-    "address": "0xe669424c3b60F8611434C03D2Bf211b91A54240D",
-    "deployedAt": 42082388
+    "name": "ProxyFactory__implementation",
+    "address": "0x264C557a040Da60c753Df4f6887DC5c9693413ec",
+    "deployedAt": 69322180
   },
   "ProxyFactory": {
     "type": "upgradeable",
     "name": "ProxyFactory",
     "address": "0x2ff2f1D9826ae2410979ae19B88c361073Ab0918",
     "dependencies": {
-      "admin": "0x73c5955dbB7a667e05da5fE7b8798c0fd4cE8E16",
+      "admin": "0xE52d9a3CBA458832A65cfa9FC8a74bacAbdeB32A",
       "implementation": "0xe669424c3b60F8611434C03D2Bf211b91A54240D"
     },
     "deployedAt": 30795158
   },
-  "GmxAdapter": {
-    "type": "plain",
-    "name": "GmxAdapter",
-    "address": "0x81CE58B23FC61a78C38574F760d8D77530f1EF9D",
-    "deployedAt": 42436832
-  },
   "Reader": {
     "type": "plain",
     "name": "Reader",
-    "address": "0x5E250d7fd315a55B0c53281Dfd03A9b91327701F",
-    "deployedAt": 42084530
+    "address": "0x225aE665fD6E2C73D9A715Ad8F5b2Af05549fC9f",
+    "deployedAt": 69362323
   },
   "LibGmx": {
     "type": "plain",
     "name": "LibGmx",
-    "address": "0x9DAA92FCa3f3F78321f2e69C04cc8CA19927899e",
-    "deployedAt": 42436819
+    "address": "0x86b16E500b830b7a31C635F7148a3A15Bf185f10",
+    "deployedAt": 72676709
+  },
+  "GmxAdapter": {
+    "type": "plain",
+    "name": "GmxAdapter",
+    "address": "0x16E6006629f9c3be4D4b54972dd10f07B5864037",
+    "deployedAt": 72676722
   }
 }

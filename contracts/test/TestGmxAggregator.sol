@@ -103,11 +103,7 @@ contract TestGmxAdapter is GmxAdapter {
         );
     }
 
-    function setDebtState(
-        uint256 cumulativeDebt,
-        uint256 cumulativeFee,
-        uint256 debtEntryFunding
-    ) external {
+    function setDebtState(uint256 cumulativeDebt, uint256 cumulativeFee, uint256 debtEntryFunding) external {
         _account.cumulativeDebt = cumulativeDebt;
         _account.cumulativeFee = cumulativeFee;
         _account.debtEntryFunding = debtEntryFunding;
@@ -119,5 +115,9 @@ contract TestGmxAdapter is GmxAdapter {
 
     function getTokenConfigs() external view returns (TokenConfigs memory) {
         return _assetConfigs;
+    }
+
+    function encodeTpslKey(bytes32 tpOrderKey, bytes32 slOrderKey) external view returns (bytes32) {
+        return LibGmx.encodeTpslIndex(tpOrderKey, slOrderKey);
     }
 }

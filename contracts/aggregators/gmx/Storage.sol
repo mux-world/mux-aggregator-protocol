@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "./Type.sol";
@@ -22,6 +23,8 @@ contract Storage is Initializable {
 
     AccountState internal _account;
     EnumerableSetUpgradeable.Bytes32Set internal _pendingOrders;
+    EnumerableMapUpgradeable.Bytes32ToBytes32Map internal _openTpslOrderIndexes;
+    EnumerableSetUpgradeable.Bytes32Set internal _closeTpslOrderIndexes;
 
-    bytes32[50] private __gaps;
+    bytes32[48] private __gaps;
 }

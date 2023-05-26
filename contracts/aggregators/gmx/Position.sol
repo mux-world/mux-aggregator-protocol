@@ -18,6 +18,7 @@ contract Position is Storage, Debt {
     using MathUpgradeable for uint256;
     using SafeMathUpgradeable for uint256;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.Bytes32Set;
+    using EnumerableMapUpgradeable for EnumerableMapUpgradeable.Bytes32ToBytes32Map;
 
     uint256 internal constant GMX_DECIMAL_MULTIPLIER = 1e12; // 30 - 18
     uint256 internal constant MAX_PENDING_ORDERS = 64;
@@ -49,6 +50,13 @@ contract Position is Storage, Debt {
 
     function _getPendingOrders() internal view returns (bytes32[] memory) {
         return _pendingOrders.values();
+    }
+
+    function _getTpslOrderIndexes(bytes32 orderKey) internal view returns (bytes32 tpOrderIndex, bytes32 slOrderIndex) {
+        (bool exists, bytes32 tpslIndex) = _openTpslOrderIndexes.tryGet(orderKey);
+        if (exists) {
+            (tpOrderIndex, slOrderIndex) = LibGmx.decodeTpslIndex(orderKey, tpslIndex);
+        }
     }
 
     function _isIncreasingOrder(bytes32 key) internal pure returns (bool) {
@@ -89,10 +97,10 @@ contract Position is Storage, Debt {
         int256 effectiveDebt = (int256(_account.cumulativeDebt + _account.cumulativeFee + muxFundingFee) -
             int256(inflightBorrow + deltaCollateral));
         if (_account.isLong) {
-            value -= (effectiveDebt * int256(position.averagePrice)) / int256(10**_account.collateralDecimals); // 1e30
+            value -= (effectiveDebt * int256(position.averagePrice)) / int256(10 ** _account.collateralDecimals); // 1e30
         } else {
             uint256 tokenPrice = LibGmx.getOraclePrice(_projectConfigs, _account.collateralToken, false); // 1e30
-            value -= (effectiveDebt * int256(tokenPrice)) / int256(10**_account.collateralDecimals); // 1e30
+            value -= (effectiveDebt * int256(tokenPrice)) / int256(10 ** _account.collateralDecimals); // 1e30
         }
         if (value > 0) {
             accountValue = uint256(value);
@@ -125,7 +133,7 @@ contract Position is Storage, Debt {
         return IGmxVault(_projectConfigs.vault).positions(_gmxPositionKey);
     }
 
-    function _openPosition(OpenPositionContext memory context) internal {
+    function _openPosition(OpenPositionContext memory context) internal returns (bytes32 orderKey) {
         require(_pendingOrders.length() <= MAX_PENDING_ORDERS, "TooManyPendingOrders");
         IGmxVault.Position memory position = _getGmxPosition();
         require(
@@ -141,6 +149,7 @@ contract Position is Storage, Debt {
         address[] memory path = new address[](1);
         path[0] = _account.collateralToken;
         if (context.isMarket) {
+            context.executionFee = LibGmx.getPrExecutionFee(_projectConfigs);
             IGmxPositionRouter(_projectConfigs.positionRouter).createIncreasePosition{ value: context.executionFee }(
                 path,
                 _account.indexToken,
@@ -153,12 +162,13 @@ contract Position is Storage, Debt {
                 _projectConfigs.referralCode,
                 address(0)
             );
-            context.gmxOrderIndex = _addPendingOrder(
+            (context.gmxOrderIndex, orderKey) = _addPendingOrder(
                 LibGmx.OrderCategory.OPEN,
                 LibGmx.OrderReceiver.PR_INC,
                 context.borrow
             );
         } else {
+            context.executionFee = LibGmx.getObExecutionFee(_projectConfigs);
             IGmxOrderBook(_projectConfigs.orderBook).createIncreaseOrder{ value: context.executionFee }(
                 path,
                 context.amountIn,
@@ -172,7 +182,7 @@ contract Position is Storage, Debt {
                 context.executionFee,
                 false
             );
-            context.gmxOrderIndex = _addPendingOrder(
+            (context.gmxOrderIndex, orderKey) = _addPendingOrder(
                 LibGmx.OrderCategory.OPEN,
                 LibGmx.OrderReceiver.OB_INC,
                 context.borrow
@@ -181,7 +191,7 @@ contract Position is Storage, Debt {
         emit OpenPosition(_account.collateralToken, _account.indexToken, _account.isLong, context);
     }
 
-    function _closePosition(ClosePositionContext memory context) internal {
+    function _closePosition(ClosePositionContext memory context) internal returns (bytes32 orderKey) {
         require(_pendingOrders.length() <= MAX_PENDING_ORDERS * 2, "TooManyPendingOrders");
 
         IGmxVault.Position memory position = _getGmxPosition();
@@ -196,12 +206,12 @@ contract Position is Storage, Debt {
             "MmMarginUnsafe"
         );
 
-        uint256 executionFee = msg.value;
         address[] memory path = new address[](1);
         path[0] = _account.collateralToken;
         if (context.isMarket) {
+            context.executionFee = LibGmx.getPrExecutionFee(_projectConfigs);
             context.priceUsd = _account.isLong ? 0 : type(uint256).max;
-            IGmxPositionRouter(_projectConfigs.positionRouter).createDecreasePosition{ value: executionFee }(
+            IGmxPositionRouter(_projectConfigs.positionRouter).createDecreasePosition{ value: context.executionFee }(
                 path, // no swap for collateral
                 _account.indexToken,
                 context.collateralUsd,
@@ -210,15 +220,20 @@ contract Position is Storage, Debt {
                 address(this),
                 context.priceUsd,
                 0,
-                msg.value,
+                context.executionFee,
                 false,
                 address(0)
             );
-            context.gmxOrderIndex = _addPendingOrder(LibGmx.OrderCategory.CLOSE, LibGmx.OrderReceiver.PR_DEC, 0);
+            (context.gmxOrderIndex, orderKey) = _addPendingOrder(
+                LibGmx.OrderCategory.CLOSE,
+                LibGmx.OrderReceiver.PR_DEC,
+                0
+            );
         } else {
+            context.executionFee = LibGmx.getObExecutionFee(_projectConfigs);
             uint256 oralcePrice = LibGmx.getOraclePrice(_projectConfigs, _account.indexToken, !_account.isLong);
             uint256 priceUsd = context.priceUsd;
-            IGmxOrderBook(_projectConfigs.orderBook).createDecreaseOrder{ value: executionFee }(
+            IGmxOrderBook(_projectConfigs.orderBook).createDecreaseOrder{ value: context.executionFee }(
                 _account.indexToken,
                 context.sizeUsd,
                 _account.collateralToken,
@@ -227,7 +242,11 @@ contract Position is Storage, Debt {
                 priceUsd,
                 priceUsd >= oralcePrice
             );
-            context.gmxOrderIndex = _addPendingOrder(LibGmx.OrderCategory.CLOSE, LibGmx.OrderReceiver.OB_DEC, 0);
+            (context.gmxOrderIndex, orderKey) = _addPendingOrder(
+                LibGmx.OrderCategory.CLOSE,
+                LibGmx.OrderReceiver.OB_DEC,
+                0
+            );
         }
         emit ClosePosition(_account.collateralToken, _account.indexToken, _account.isLong, context);
     }
@@ -271,15 +290,49 @@ contract Position is Storage, Debt {
         );
     }
 
-    function _cancelOrder(bytes32 key) internal returns (bool success) {
-        require(_hasPendingOrder(key), "KeyNotExists");
-        success = LibGmx.cancelOrder(_projectConfigs, key);
-        _removePendingOrder(key);
-        emit CancelOrder(key, success);
+    function _cancelOrder(bytes32 orderKey) internal returns (bool success) {
+        if (!_hasPendingOrder(orderKey)) {
+            success = true;
+        } else {
+            success = LibGmx.cancelOrder(_projectConfigs, orderKey);
+            if (success) {
+                _removePendingOrder(orderKey);
+                emit CancelOrder(orderKey, success);
+            }
+        }
+    }
+
+    function _cancelTpslOrders(bytes32 orderKey) internal returns (bool success) {
+        (bool exists, bytes32 tpslIndex) = _openTpslOrderIndexes.tryGet(orderKey);
+        if (!exists) {
+            success = true;
+        } else {
+            (bytes32 tpOrderKey, bytes32 slOrderKey) = LibGmx.decodeTpslIndex(orderKey, tpslIndex);
+            if (_cancelOrder(tpOrderKey) && _cancelOrder(slOrderKey)) {
+                _openTpslOrderIndexes.remove(orderKey);
+                success = true;
+            }
+        }
+    }
+
+    // the tp/sl order may be canceled earlier
+    function _tryCancelOrder(bytes32 key) internal returns (bool) {
+        if (!_cancelOrder(key)) {
+            return false;
+        }
+        (bool exists, bytes32 tpslIndex) = _openTpslOrderIndexes.tryGet(key);
+        if (exists) {
+            (bytes32 tpOrderKey, bytes32 slOrderKey) = LibGmx.decodeTpslIndex(key, tpslIndex);
+            if (_cancelOrder(tpOrderKey) && _cancelOrder(slOrderKey)) {
+                _openTpslOrderIndexes.remove(key);
+            }
+        }
+        return true;
     }
 
     function _removePendingOrder(bytes32 key) internal {
         _pendingOrders.remove(key);
+        _closeTpslOrderIndexes.remove(key);
         emit RemovePendingOrder(key);
     }
 
@@ -287,12 +340,10 @@ contract Position is Storage, Debt {
         LibGmx.OrderCategory category,
         LibGmx.OrderReceiver receiver,
         uint256 borrow
-    ) internal returns (uint256 index) {
+    ) internal returns (uint256 index, bytes32 orderKey) {
         index = LibGmx.getOrderIndex(_projectConfigs, receiver);
-        require(
-            _pendingOrders.add(LibGmx.encodeOrderHistoryKey(category, receiver, index, borrow, block.timestamp)),
-            "AddFailed"
-        );
+        orderKey = LibGmx.encodeOrderHistoryKey(category, receiver, index, borrow, block.timestamp);
+        require(_pendingOrders.add(orderKey), "AddFailed");
         emit AddPendingOrder(category, receiver, index, borrow, block.timestamp);
     }
 

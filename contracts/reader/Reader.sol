@@ -19,12 +19,7 @@ contract Reader {
 
     uint256 internal constant GMX_PROJECT_ID = 1;
 
-    constructor(
-        IProxyFactory aggregatorFactory_,
-        IGmxVault gmxVault_,
-        IERC20 weth_,
-        IERC20 usdg_
-    ) {
+    constructor(IProxyFactory aggregatorFactory_, IGmxVault gmxVault_, IERC20 weth_, IERC20 usdg_) {
         aggregatorFactory = aggregatorFactory_;
         gmxVault = gmxVault_;
         weth = weth_;
@@ -60,11 +55,10 @@ contract Reader {
         uint256 borrowLimit; // token.decimals
     }
 
-    function _getMuxCollaterals(uint256 projectId, address[] memory tokenAddresses)
-        internal
-        view
-        returns (MuxCollateral[] memory tokens)
-    {
+    function _getMuxCollaterals(
+        uint256 projectId,
+        address[] memory tokenAddresses
+    ) internal view returns (MuxCollateral[] memory tokens) {
         tokens = new MuxCollateral[](tokenAddresses.length);
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             MuxCollateral memory token = tokens[i];
@@ -102,11 +96,10 @@ contract Reader {
         GmxToken[] tokens;
     }
 
-    function _getGmxCoreStorage(IGmxPositionRouter gmxPositionRouter, IGmxOrderBook gmxOrderBook)
-        internal
-        view
-        returns (GmxCoreStorage memory store)
-    {
+    function _getGmxCoreStorage(
+        IGmxPositionRouter gmxPositionRouter,
+        IGmxOrderBook gmxOrderBook
+    ) internal view returns (GmxCoreStorage memory store) {
         store.totalTokenWeights = gmxVault.totalTokenWeights();
         store.minProfitTime = gmxVault.minProfitTime();
         uint256 exec1 = gmxPositionRouter.minExecutionFee();
@@ -142,11 +135,10 @@ contract Reader {
         uint256 cumulativeFundingRate;
     }
 
-    function _getGmxCoreTokens(IGmxBasePositionManager gmxPositionManager, address[] memory tokenAddresses)
-        internal
-        view
-        returns (GmxToken[] memory tokens)
-    {
+    function _getGmxCoreTokens(
+        IGmxBasePositionManager gmxPositionManager,
+        address[] memory tokenAddresses
+    ) internal view returns (GmxToken[] memory tokens) {
         tokens = new GmxToken[](tokenAddresses.length);
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             address tokenAddress = tokenAddresses[i];
@@ -163,7 +155,7 @@ contract Reader {
             token.poolAmount = gmxVault.poolAmounts(tokenAddress);
             token.reservedAmount = gmxVault.reservedAmounts(tokenAddress);
             token.usdgAmount = gmxVault.usdgAmounts(tokenAddress);
-            token.redemptionAmount = gmxVault.getRedemptionAmount(tokenAddress, 10**30);
+            token.redemptionAmount = gmxVault.getRedemptionAmount(tokenAddress, 10 ** 30);
             token.bufferAmounts = gmxVault.bufferAmounts(tokenAddress);
             token.globalShortSize = gmxVault.globalShortSizes(tokenAddress);
             token.contractMinPrice = gmxVault.getMinPrice(tokenAddress);
@@ -237,11 +229,9 @@ contract Reader {
         }
     }
 
-    function _getMuxAggregatorSubAccountForGmxAdapter(GmxAdapter adapter)
-        internal
-        view
-        returns (AggregatorSubAccount memory account)
-    {
+    function _getMuxAggregatorSubAccountForGmxAdapter(
+        GmxAdapter adapter
+    ) internal view returns (AggregatorSubAccount memory account) {
         account.projectId = GMX_PROJECT_ID;
         AccountState memory muxAccount = adapter.muxAccountState();
         account.proxyAddress = address(adapter);
@@ -295,6 +285,9 @@ contract Reader {
         uint256 sizeDeltaUsd; // 1e30
         uint256 triggerPrice; // 0 if market order, 1e30
         bool triggerAboveThreshold;
+        // tp/sl strategy only
+        bytes32 tpOrderHistoryKey;
+        bytes32 slOrderHistoryKey;
     }
 
     function _getGmxAdapterOrders(
@@ -365,5 +358,6 @@ contract Reader {
             order.triggerPrice = triggerPrice;
             order.triggerAboveThreshold = triggerAboveThreshold;
         }
+        (order.tpOrderHistoryKey, order.slOrderHistoryKey) = aggregator.getTpslOrderKeys(key);
     }
 }

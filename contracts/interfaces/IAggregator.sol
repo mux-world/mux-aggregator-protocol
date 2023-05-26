@@ -19,6 +19,8 @@ interface IAggregator {
         uint256 borrow, // collateral.decimals
         uint256 sizeUsd, // 1e18
         uint96 priceUsd, // 1e18
+        uint96 tpPriceUsd,
+        uint96 slPriceUsd,
         uint8 flags // MARKET, TRIGGER
     ) external payable;
 
@@ -26,6 +28,8 @@ interface IAggregator {
         uint256 collateralUsd, // collateral.decimals
         uint256 sizeUsd, // 1e18
         uint96 priceUsd, // 1e18
+        uint96 tpPriceUsd,
+        uint96 slPriceUsd,
         uint8 flags // MARKET, TRIGGER
     ) external payable;
 
@@ -40,4 +44,12 @@ interface IAggregator {
     function denyPlugin(address[] memory gmxPlugins) external;
 
     function cancelTimeoutOrders(bytes32[] calldata keys) external;
+
+    function updateOrder(
+        bytes32 orderKey,
+        uint256 collateralDelta,
+        uint256 sizeDelta,
+        uint256 triggerPrice,
+        bool triggerAboveThreshold
+    ) external;
 }

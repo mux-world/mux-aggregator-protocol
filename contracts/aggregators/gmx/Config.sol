@@ -93,7 +93,7 @@ contract Config is Storage, Debt, Position {
         _assetConfigs.referenceDeviation = values[uint256(TokenConfigIds.REFERRENCE_ORACLE_DEVIATION)].toU32();
     }
 
-    // path  TODO: remove me when deploy
+    // TODO: remove me on next deploy
     function _patch() internal {
         if (_account.collateralDecimals == 0) {
             _account.collateralDecimals = IERC20MetadataUpgradeable(_account.collateralToken).decimals();

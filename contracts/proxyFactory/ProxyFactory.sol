@@ -32,7 +32,6 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         uint8 flags; // MARKET, TRIGGER
         bytes32 referralCode;
     }
-
     struct ClosePositionArgs {
         uint256 projectId;
         address collateralToken;
@@ -44,6 +43,45 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         uint8 flags; // MARKET, TRIGGER
         bytes32 referralCode;
     }
+
+    struct OpenPositionArgsV2 {
+        uint256 projectId;
+        address collateralToken;
+        address assetToken;
+        bool isLong;
+        address tokenIn;
+        uint256 amountIn; // tokenIn.decimals
+        uint256 minOut; // collateral.decimals
+        uint256 borrow; // collateral.decimals
+        uint256 sizeUsd; // 1e18
+        uint96 priceUsd; // 1e18
+        uint96 tpPriceUsd; // 1e18
+        uint96 slPriceUsd; // 1e18
+        uint8 flags; // MARKET, TRIGGER
+        bytes32 referralCode;
+    }
+    struct ClosePositionArgsV2 {
+        uint256 projectId;
+        address collateralToken;
+        address assetToken;
+        bool isLong;
+        uint256 collateralUsd; // collateral.decimals
+        uint256 sizeUsd; // 1e18
+        uint96 priceUsd; // 1e18
+        uint96 tpPriceUsd; // 1e18
+        uint96 slPriceUsd; // 1e18
+        uint8 flags; // MARKET, TRIGGER
+        bytes32 referralCode;
+    }
+
+    struct OrderParams {
+        bytes32 orderKey;
+        uint256 collateralDelta;
+        uint256 sizeDelta;
+        uint256 triggerPrice;
+        bool triggerAboveThreshold;
+    }
+
     event SetMaintainer(address maintainer, bool enable);
     event SetKeeper(address keeper, bool enable);
     event SetGmxReferralCode(bytes32 gmxReferralCode);
@@ -70,11 +108,10 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         return _keepers[keeper];
     }
 
-    function getConfigVersions(uint256 projectId, address assetToken)
-        external
-        view
-        returns (uint32 projectConfigVersion, uint32 assetConfigVersion)
-    {
+    function getConfigVersions(
+        uint256 projectId,
+        address assetToken
+    ) external view returns (uint32 projectConfigVersion, uint32 assetConfigVersion) {
         return _getLatestVersions(projectId, assetToken);
     }
 
@@ -94,15 +131,10 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         return _ownedProxies[account];
     }
 
-    function getBorrowStates(uint256 projectId, address assetToken)
-        external
-        view
-        returns (
-            uint256 totalBorrow,
-            uint256 borrowLimit,
-            uint256 badDebt
-        )
-    {
+    function getBorrowStates(
+        uint256 projectId,
+        address assetToken
+    ) external view returns (uint256 totalBorrow, uint256 borrowLimit, uint256 badDebt) {
         DebtData storage debtData = _debtData[projectId][assetToken];
         totalBorrow = debtData.totalDebt;
         borrowLimit = debtData.limit;
@@ -120,12 +152,7 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         _referralManager = referralManager;
     }
 
-    function setBorrowConfig(
-        uint256 projectId,
-        address assetToken,
-        uint8 newAssetId,
-        uint256 newLimit
-    ) external {
+    function setBorrowConfig(uint256 projectId, address assetToken, uint8 newAssetId, uint256 newLimit) external {
         require(_maintainers[msg.sender] || msg.sender == owner(), "OnlyMaintainerOrAbove");
         DebtData storage debtData = _debtData[projectId][assetToken];
         _verifyAssetId(assetToken, newAssetId);
@@ -150,11 +177,7 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         emit SetKeeper(keeper, enable);
     }
 
-    function setProjectAssetConfig(
-        uint256 projectId,
-        address assetToken,
-        uint256[] memory values
-    ) external onlyOwner {
+    function setProjectAssetConfig(uint256 projectId, address assetToken, uint256[] memory values) external onlyOwner {
         _setProjectAssetConfig(projectId, assetToken, values);
     }
 
@@ -174,13 +197,7 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         amountOut = _borrowAsset(projectId, msg.sender, assetToken, toBorrow, fee);
     }
 
-    function repayAsset(
-        uint256 projectId,
-        address assetToken,
-        uint256 toRepay,
-        uint256 fee,
-        uint256 badDebt
-    ) external {
+    function repayAsset(uint256 projectId, address assetToken, uint256 toRepay, uint256 fee, uint256 badDebt) external {
         require(_isCreatedProxy(msg.sender), "CallNotProxy");
         _repayAsset(projectId, msg.sender, assetToken, toRepay, fee, badDebt);
     }
@@ -217,7 +234,7 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         } else {
             require(msg.value >= args.amountIn, "InsufficientAmountIn");
         }
-        if (_referralManager != address(0)) {
+        if (args.referralCode != bytes32(0) && _referralManager != address(0)) {
             IReferralManager(_referralManager).setReferrerCodeFor(proxy, args.referralCode);
         }
         IAggregator(proxy).openPosition{ value: msg.value }(
@@ -227,19 +244,65 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
             args.borrow,
             args.sizeUsd,
             args.priceUsd,
+            0,
+            0,
+            args.flags
+        );
+    }
+
+    function openPositionV2(OpenPositionArgsV2 calldata args) external payable {
+        bytes32 proxyId = _makeProxyId(args.projectId, msg.sender, args.collateralToken, args.assetToken, args.isLong);
+        address proxy = _tradingProxies[proxyId];
+        if (proxy == address(0)) {
+            proxy = createProxy(args.projectId, args.collateralToken, args.assetToken, args.isLong);
+        }
+        if (args.tokenIn != _weth) {
+            IERC20Upgradeable(args.tokenIn).safeTransferFrom(msg.sender, proxy, args.amountIn);
+        } else {
+            require(msg.value >= args.amountIn, "InsufficientAmountIn");
+        }
+        if (args.referralCode != bytes32(0) && _referralManager != address(0)) {
+            IReferralManager(_referralManager).setReferrerCodeFor(proxy, args.referralCode);
+        }
+        IAggregator(proxy).openPosition{ value: msg.value }(
+            args.tokenIn,
+            args.amountIn,
+            args.minOut,
+            args.borrow,
+            args.sizeUsd,
+            args.priceUsd,
+            args.tpPriceUsd,
+            args.slPriceUsd,
             args.flags
         );
     }
 
     function closePosition(ClosePositionArgs calldata args) external payable {
         address proxy = _mustGetProxy(args.projectId, msg.sender, args.collateralToken, args.assetToken, args.isLong);
-        if (_referralManager != address(0)) {
+        if (args.referralCode != bytes32(0) && _referralManager != address(0)) {
             IReferralManager(_referralManager).setReferrerCodeFor(proxy, args.referralCode);
         }
         IAggregator(proxy).closePosition{ value: msg.value }(
             args.collateralUsd,
             args.sizeUsd,
             args.priceUsd,
+            0,
+            0,
+            args.flags
+        );
+    }
+
+    function closePositionV2(ClosePositionArgsV2 calldata args) external payable {
+        address proxy = _mustGetProxy(args.projectId, msg.sender, args.collateralToken, args.assetToken, args.isLong);
+        if (args.referralCode != bytes32(0) && _referralManager != address(0)) {
+            IReferralManager(_referralManager).setReferrerCodeFor(proxy, args.referralCode);
+        }
+        IAggregator(proxy).closePosition{ value: msg.value }(
+            args.collateralUsd,
+            args.sizeUsd,
+            args.priceUsd,
+            args.tpPriceUsd,
+            args.slPriceUsd,
             args.flags
         );
     }
@@ -252,6 +315,24 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         bytes32[] calldata keys
     ) external {
         IAggregator(_mustGetProxy(projectId, msg.sender, collateralToken, assetToken, isLong)).cancelOrders(keys);
+    }
+
+    function updateOrder(
+        uint256 projectId,
+        address collateralToken,
+        address assetToken,
+        bool isLong,
+        OrderParams[] memory orderParams
+    ) external {
+        for (uint256 i = 0; i < orderParams.length; i++) {
+            IAggregator(_mustGetProxy(projectId, msg.sender, collateralToken, assetToken, isLong)).updateOrder(
+                orderParams[i].orderKey,
+                orderParams[i].collateralDelta,
+                orderParams[i].sizeDelta,
+                orderParams[i].triggerPrice,
+                orderParams[i].triggerAboveThreshold
+            );
+        }
     }
 
     // ======================== method called by keeper ========================

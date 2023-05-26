@@ -29,7 +29,10 @@ contract MockGmxOrderBook is IGmxOrderBook {
         uint256[] memory _decreaseOrderIndexes
     ) external {}
 
-    function getIncreaseOrder(address _account, uint256 _orderIndex)
+    function getIncreaseOrder(
+        address _account,
+        uint256 _orderIndex
+    )
         public
         view
         override
@@ -81,7 +84,10 @@ contract MockGmxOrderBook is IGmxOrderBook {
         delete increaseOrders[msg.sender][_orderIndex];
     }
 
-    function getDecreaseOrder(address, uint256)
+    function getDecreaseOrder(
+        address,
+        uint256
+    )
         public
         pure
         override
@@ -99,15 +105,7 @@ contract MockGmxOrderBook is IGmxOrderBook {
         return (address(0), 0, address(0), 0, true, 0, true, 0);
     }
 
-    function createDecreaseOrder(
-        address,
-        uint256,
-        address,
-        uint256,
-        bool,
-        uint256,
-        bool
-    ) external payable {
+    function createDecreaseOrder(address, uint256, address, uint256, bool, uint256, bool) external payable {
         uint256 _orderIndex = decreaseOrdersIndex[msg.sender] += 1;
         decreaseOrdersIndex[msg.sender] += 1;
         decreaseOrders[msg.sender][_orderIndex] = DecreaseOrder({ thisIsJustAMock: true });
@@ -125,15 +123,14 @@ contract MockGmxOrderBook is IGmxOrderBook {
         bool _triggerAboveThreshold
     ) external {}
 
-    function executeDecreaseOrder(
-        address,
-        uint256,
-        address payable
+    function updateIncreaseOrder(
+        uint256 _orderIndex,
+        uint256 _sizeDelta,
+        uint256 _triggerPrice,
+        bool _triggerAboveThreshold
     ) external {}
 
-    function executeIncreaseOrder(
-        address,
-        uint256,
-        address payable
-    ) external {}
+    function executeDecreaseOrder(address, uint256, address payable) external {}
+
+    function executeIncreaseOrder(address, uint256, address payable) external {}
 }

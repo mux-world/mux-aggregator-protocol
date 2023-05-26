@@ -57,17 +57,16 @@ library LibGmx {
         address tokenOut,
         uint256 amountIn,
         uint256 minOut
-    ) internal returns (uint256 amountOut) {
+    ) public returns (uint256 amountOut) {
         IERC20(tokenIn).safeTransfer(projectConfigs.vault, amountIn);
         amountOut = IGmxVault(projectConfigs.vault).swap(tokenIn, tokenOut, address(this));
         require(amountOut >= minOut, "AmountOutNotReached");
     }
 
-    function getOrderIndex(ProjectConfigs memory projectConfigs, OrderReceiver receiver)
-        internal
-        view
-        returns (uint256 index)
-    {
+    function getOrderIndex(
+        ProjectConfigs memory projectConfigs,
+        OrderReceiver receiver
+    ) public view returns (uint256 index) {
         if (receiver == OrderReceiver.PR_INC) {
             index = IGmxPositionRouter(projectConfigs.positionRouter).increasePositionsIndex(address(this));
         } else if (receiver == OrderReceiver.PR_DEC) {
@@ -79,11 +78,10 @@ library LibGmx {
         }
     }
 
-    function getOrder(ProjectConfigs memory projectConfigs, bytes32 key)
-        internal
-        view
-        returns (bool isFilled, OrderHistory memory history)
-    {
+    function getOrder(
+        ProjectConfigs memory projectConfigs,
+        bytes32 key
+    ) public view returns (bool isFilled, OrderHistory memory history) {
         history = decodeOrderHistoryKey(key);
         if (history.receiver == OrderReceiver.PR_INC) {
             IGmxPositionRouter.IncreasePositionRequest memory request = IGmxPositionRouter(
@@ -112,7 +110,7 @@ library LibGmx {
         }
     }
 
-    function cancelOrderFromPositionRouter(address positionRouter, bytes32 key) internal returns (bool success) {
+    function cancelOrderFromPositionRouter(address positionRouter, bytes32 key) public returns (bool success) {
         OrderHistory memory history = decodeOrderHistoryKey(key);
         success = false;
         if (history.receiver == OrderReceiver.PR_INC) {
@@ -136,7 +134,7 @@ library LibGmx {
         }
     }
 
-    function cancelOrderFromOrderBook(address orderBook, bytes32 key) internal returns (bool success) {
+    function cancelOrderFromOrderBook(address orderBook, bytes32 key) public returns (bool success) {
         OrderHistory memory history = decodeOrderHistoryKey(key);
         success = false;
         if (history.receiver == OrderReceiver.OB_INC) {
@@ -193,7 +191,6 @@ library LibGmx {
         uint256 priceUsd,
         uint256 lastIncreasedTime
     ) public view returns (bool, uint256) {
-        require(priceUsd > 0, "");
         uint256 priceDelta = averagePriceUsd > priceUsd ? averagePriceUsd - priceUsd : priceUsd - averagePriceUsd;
         uint256 delta = (size * priceDelta) / averagePriceUsd;
         bool hasProfit;
@@ -247,5 +244,34 @@ library LibGmx {
             bytes32(uint256(index) << 184) | // 256 - 4 - 4 - 64
             bytes32(uint256(borrow) << 88) | // 256 - 4 - 4 - 64 - 96
             bytes32(uint256(timestamp));
+    }
+
+    function encodeTpslIndex(bytes32 tpOrderKey, bytes32 slOrderKey) internal pure returns (bytes32) {
+        //            252          248                184
+        // +------------+------------+------------------+
+        // | category 4 | receiver 4 | gmxOrderIndex 64 |
+        // +------------+------------+------------------+
+        // store head of orderkey without timestamp, since tpsl orders should have the same timestamp as the open order.
+        return bytes32(bytes9(tpOrderKey)) | (bytes32(bytes9(slOrderKey)) >> 128);
+    }
+
+    function decodeTpslIndex(
+        bytes32 orderKey,
+        bytes32 tpslIndex
+    ) internal pure returns (bytes32 tpOrderKey, bytes32 slOrderKey) {
+        bytes32 timestamp = bytes32(uint256(uint88(uint256(orderKey))));
+        // timestamp of all tpsl orders (main +tp +sl) are same
+        tpOrderKey = bytes32(bytes16(tpslIndex));
+        tpOrderKey = tpOrderKey != bytes32(0) ? tpOrderKey | timestamp : tpOrderKey;
+        slOrderKey = (tpslIndex << 128);
+        slOrderKey = slOrderKey != bytes32(0) ? slOrderKey | timestamp : slOrderKey;
+    }
+
+    function getPrExecutionFee(ProjectConfigs memory projectConfigs) public view returns (uint256) {
+        return IGmxPositionRouter(projectConfigs.positionRouter).minExecutionFee();
+    }
+
+    function getObExecutionFee(ProjectConfigs memory projectConfigs) public view returns (uint256) {
+        return IGmxOrderBook(projectConfigs.orderBook).minExecutionFee() + 1;
     }
 }
