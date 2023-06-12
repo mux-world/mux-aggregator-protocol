@@ -6,7 +6,6 @@ import "@nomiclabs/hardhat-etherscan"
 import "solidity-coverage"
 import { Deployer } from "./scripts/deployer/deployer"
 import { retrieveLinkReferences } from "./scripts/deployer/linkReferenceParser"
-import "storagelens"
 
 task("deploy", "Deploy a single contract")
   .addPositionalParam("name", "Name of contract to deploy")

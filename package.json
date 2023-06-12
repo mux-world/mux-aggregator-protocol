@@ -23,16 +23,15 @@
     "@types/node": "^18.7.18",
     "chai": "^4.3.6",
     "ethers": "^5.7.1",
+    "ethereum-waffle": "^3.4.4",
     "hardhat": "^2.11.2",
+    "solidity-coverage": "^0.7.20",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.0",
     "typescript": "^4.8.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.7.0",
-    "@openzeppelin/contracts-upgradeable": "4.7.0",
-    "ethereum-waffle": "^3.4.4",
-    "solidity-coverage": "^0.7.20",
-    "storagelens": "^0.0.2"
+    "@openzeppelin/contracts-upgradeable": "4.7.0"
   }
 }
