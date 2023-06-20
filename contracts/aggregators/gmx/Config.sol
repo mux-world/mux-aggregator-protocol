@@ -62,12 +62,12 @@ contract Config is Storage, Debt, Position {
 
     function _onGmxAddressUpdated(
         address previousPositionRouter,
-        address prevousOrderBook,
+        address previousOrderBook,
         address newPostitionRouter,
         address newOrderBook
     ) internal virtual {
         bool cancelPositionRouter = previousPositionRouter != newPostitionRouter;
-        bool cancelOrderBook = prevousOrderBook != newOrderBook;
+        bool cancelOrderBook = previousOrderBook != newOrderBook;
         bytes32[] memory pendingKeys = _pendingOrders.values();
         for (uint256 i = 0; i < pendingKeys.length; i++) {
             bytes32 key = pendingKeys[i];
@@ -76,7 +76,7 @@ contract Config is Storage, Debt, Position {
                 _removePendingOrder(key);
             }
             if (cancelOrderBook) {
-                LibGmx.cancelOrderFromOrderBook(newPostitionRouter, key);
+                LibGmx.cancelOrderFromOrderBook(previousOrderBook, key);
                 _removePendingOrder(key);
             }
         }

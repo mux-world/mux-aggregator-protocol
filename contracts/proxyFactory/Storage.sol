@@ -43,5 +43,7 @@ contract Storage is Initializable {
 
     mapping(address => bool) _maintainers;
 
-    bytes32[51] private __gaps;
+    address internal _muxOrderBook;
+
+    bytes32[50] private __gaps;
 }

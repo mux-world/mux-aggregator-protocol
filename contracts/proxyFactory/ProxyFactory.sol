@@ -3,12 +3,14 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
 import "../interfaces/IAggregator.sol";
 import "../interfaces/IReferralManager.sol";
+import "../interfaces/IMuxOrderBook.sol";
 
 import "./Storage.sol";
 import "./ProxyBeacon.sol";
@@ -74,6 +76,26 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         bytes32 referralCode;
     }
 
+    struct PositionOrderExtra {
+        // tp/sl strategy
+        uint96 tpPrice; // take-profit price. decimals = 18. only valid when flags.POSITION_TPSL_STRATEGY.
+        uint96 slPrice; // stop-loss price. decimals = 18. only valid when flags.POSITION_TPSL_STRATEGY.
+        uint8 tpslProfitTokenId; // only valid when flags.POSITION_TPSL_STRATEGY.
+        uint32 tpslDeadline; // only valid when flags.POSITION_TPSL_STRATEGY.
+    }
+
+    struct MuxOrderParams {
+        bytes32 subAccountId;
+        uint96 collateralAmount; // erc20.decimals
+        uint96 size; // 1e18
+        uint96 price; // 1e18
+        uint8 profitTokenId;
+        uint8 flags;
+        uint32 deadline; // 1e0
+        bytes32 referralCode;
+        IMuxOrderBook.PositionOrderExtra extra;
+    }
+
     struct OrderParams {
         bytes32 orderKey;
         uint256 collateralDelta;
@@ -93,6 +115,7 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         uint256 prevLimit,
         uint256 newLimit
     );
+    event MuxCall(address target, uint256 value, bytes data);
 
     function initialize(address weth_, address liquidityPool) external initializer {
         __Ownable_init();
@@ -150,6 +173,10 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
     // =========================== management interfaces ===========================
     function setReferralManager(address referralManager) external onlyOwner {
         _referralManager = referralManager;
+    }
+
+    function setMuxOrderBook(address muxOrderBook) external onlyOwner {
+        _muxOrderBook = muxOrderBook;
     }
 
     function setBorrowConfig(uint256 projectId, address assetToken, uint8 newAssetId, uint256 newLimit) external {
@@ -251,6 +278,33 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
     }
 
     function openPositionV2(OpenPositionArgsV2 calldata args) external payable {
+        _openPosition(args, msg.value);
+    }
+
+    function openPositionV3(
+        OpenPositionArgsV2 calldata args,
+        MuxOrderParams calldata muxParams,
+        uint256 muxValue
+    ) external payable {
+        require(msg.value >= muxValue, "InsufficientValue");
+        _openPosition(args, msg.value - muxValue);
+        if (muxParams.subAccountId != bytes32(0)) {
+            require(msg.sender == _getSubAccountOwner(muxParams.subAccountId), "SubAccountNotMatch");
+            IMuxOrderBook(_muxOrderBook).placePositionOrder3{ value: muxValue }(
+                muxParams.subAccountId,
+                muxParams.collateralAmount,
+                muxParams.size,
+                muxParams.price,
+                muxParams.profitTokenId,
+                muxParams.flags,
+                muxParams.deadline,
+                muxParams.referralCode,
+                muxParams.extra
+            );
+        }
+    }
+
+    function _openPosition(OpenPositionArgsV2 calldata args, uint256 value) internal {
         bytes32 proxyId = _makeProxyId(args.projectId, msg.sender, args.collateralToken, args.assetToken, args.isLong);
         address proxy = _tradingProxies[proxyId];
         if (proxy == address(0)) {
@@ -259,12 +313,12 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         if (args.tokenIn != _weth) {
             IERC20Upgradeable(args.tokenIn).safeTransferFrom(msg.sender, proxy, args.amountIn);
         } else {
-            require(msg.value >= args.amountIn, "InsufficientAmountIn");
+            require(value >= args.amountIn, "InsufficientAmountIn");
         }
         if (args.referralCode != bytes32(0) && _referralManager != address(0)) {
             IReferralManager(_referralManager).setReferrerCodeFor(proxy, args.referralCode);
         }
-        IAggregator(proxy).openPosition{ value: msg.value }(
+        IAggregator(proxy).openPosition{ value: value }(
             args.tokenIn,
             args.amountIn,
             args.minOut,
@@ -399,5 +453,9 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         }
         address token = ILiquidityPool(_liquidityPool).getAssetAddress(assetId);
         require(assetToken == token, "BadAssetId");
+    }
+
+    function _getSubAccountOwner(bytes32 subAccountId) internal pure returns (address account) {
+        account = address(uint160(uint256(subAccountId) >> 96));
     }
 }
