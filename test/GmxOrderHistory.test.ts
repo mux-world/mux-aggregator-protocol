@@ -61,9 +61,18 @@ describe("GmxOrderHistory", () => {
     // contracts
     const weth = (await ethers.getContractAt("MockERC20", wethAddress)) as MockERC20
     const usdc = (await ethers.getContractAt("MockERC20", usdcAddress)) as MockERC20
-    const gmxFastPriceFeed = (await ethers.getContractAt("IGmxFastPriceFeed", FastPriceFeedAddress)) as IGmxFastPriceFeed
-    const gmxPositionRouter = (await ethers.getContractAt("IGmxPositionRouter", PositionRouterAddress)) as IGmxPositionRouter
-    const gmxPositionManager = (await ethers.getContractAt("IGmxPositionManager", PositionManagerAddress)) as IGmxPositionManager
+    const gmxFastPriceFeed = (await ethers.getContractAt(
+      "IGmxFastPriceFeed",
+      FastPriceFeedAddress
+    )) as IGmxFastPriceFeed
+    const gmxPositionRouter = (await ethers.getContractAt(
+      "IGmxPositionRouter",
+      PositionRouterAddress
+    )) as IGmxPositionRouter
+    const gmxPositionManager = (await ethers.getContractAt(
+      "IGmxPositionManager",
+      PositionManagerAddress
+    )) as IGmxPositionManager
     const gmxOrderBook = (await ethers.getContractAt("IGmxOrderBook", OrderBookAddress)) as IGmxOrderBook
     const gmxRouter = (await ethers.getContractAt("IGmxRouter", RouterAddress)) as IGmxRouter
     const gmxVault = (await ethers.getContractAt("IGmxVault", VaultAddress)) as IGmxVault
@@ -86,7 +95,19 @@ describe("GmxOrderHistory", () => {
 
     // fixtures can return anything you consider useful for your tests
     console.log("fixtures: generated")
-    return { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxPositionManager, gmxOrderBook, gmxRouter, gmxVault, gmxReader, gmxVaultReader }
+    return {
+      weth,
+      usdc,
+      priceUpdater,
+      gmxFastPriceFeed,
+      gmxPositionRouter,
+      gmxPositionManager,
+      gmxOrderBook,
+      gmxRouter,
+      gmxVault,
+      gmxReader,
+      gmxVaultReader,
+    }
   }
 
   after(async () => {
@@ -102,11 +123,14 @@ describe("GmxOrderHistory", () => {
   it("orders", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -131,12 +155,12 @@ describe("GmxOrderHistory", () => {
     const factory = await createContract("ProxyFactory")
     await factory.initialize(weth.address, liquidityPool.address)
     await factory.setProjectConfig(PROJECT_GMX, defaultProjectConfig)
-    await factory.setProjectAssetConfig(PROJECT_GMX, usdc.address, defaultAssetConfig());
-    await factory.setProjectAssetConfig(PROJECT_GMX, weth.address, defaultAssetConfig());
+    await factory.setProjectAssetConfig(PROJECT_GMX, usdc.address, defaultAssetConfig())
+    await factory.setProjectAssetConfig(PROJECT_GMX, weth.address, defaultAssetConfig())
     await factory.setBorrowConfig(PROJECT_GMX, usdc.address, 0, toWei("1000"))
     await factory.setBorrowConfig(PROJECT_GMX, weth.address, 1, toWei("1000"))
     await factory.upgradeTo(PROJECT_GMX, aggregator.address)
-    await factory.setKeeper(priceUpdater.address, true);
+    await factory.setKeeper(priceUpdater.address, true)
 
     const executionFee = await gmxPositionRouter.minExecutionFee()
     console.log(executionFee)
@@ -146,7 +170,7 @@ describe("GmxOrderHistory", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     // create 1
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -184,7 +208,7 @@ describe("GmxOrderHistory", () => {
       expect(history.borrow).to.be.closeTo(toWei("0.01"), 1000)
     }
     // create 2
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -252,9 +276,8 @@ describe("GmxOrderHistory", () => {
       expect(order.account).to.equal(zAddress)
     }
 
-
-    await proxy.withdraw();
-    await factory.connect(trader1).openPosition(
+    await proxy.withdraw()
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,

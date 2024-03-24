@@ -61,9 +61,18 @@ describe("GmxOrder", () => {
     // contracts
     const weth = (await ethers.getContractAt("MockERC20", wethAddress)) as MockERC20
     const usdc = (await ethers.getContractAt("MockERC20", usdcAddress)) as MockERC20
-    const gmxFastPriceFeed = (await ethers.getContractAt("IGmxFastPriceFeed", FastPriceFeedAddress)) as IGmxFastPriceFeed
-    const gmxPositionRouter = (await ethers.getContractAt("IGmxPositionRouter", PositionRouterAddress)) as IGmxPositionRouter
-    const gmxPositionManager = (await ethers.getContractAt("IGmxPositionManager", PositionManagerAddress)) as IGmxPositionManager
+    const gmxFastPriceFeed = (await ethers.getContractAt(
+      "IGmxFastPriceFeed",
+      FastPriceFeedAddress
+    )) as IGmxFastPriceFeed
+    const gmxPositionRouter = (await ethers.getContractAt(
+      "IGmxPositionRouter",
+      PositionRouterAddress
+    )) as IGmxPositionRouter
+    const gmxPositionManager = (await ethers.getContractAt(
+      "IGmxPositionManager",
+      PositionManagerAddress
+    )) as IGmxPositionManager
     const gmxOrderBook = (await ethers.getContractAt("IGmxOrderBook", OrderBookAddress)) as IGmxOrderBook
     const gmxRouter = (await ethers.getContractAt("IGmxRouter", RouterAddress)) as IGmxRouter
     const gmxVault = (await ethers.getContractAt("IGmxVault", VaultAddress)) as IGmxVault
@@ -86,7 +95,19 @@ describe("GmxOrder", () => {
 
     // fixtures can return anything you consider useful for your tests
     console.log("fixtures: generated")
-    return { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxPositionManager, gmxOrderBook, gmxRouter, gmxVault, gmxReader, gmxVaultReader }
+    return {
+      weth,
+      usdc,
+      priceUpdater,
+      gmxFastPriceFeed,
+      gmxPositionRouter,
+      gmxPositionManager,
+      gmxOrderBook,
+      gmxRouter,
+      gmxVault,
+      gmxReader,
+      gmxVaultReader,
+    }
   }
 
   after(async () => {
@@ -101,11 +122,14 @@ describe("GmxOrder", () => {
   it("cancel timeout orders", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -145,7 +169,7 @@ describe("GmxOrder", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     await setGmxPrice("1295.9")
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -185,17 +209,19 @@ describe("GmxOrder", () => {
     var pendingOrders = await proxy.getPendingGmxOrderKeys()
     expect(pendingOrders.length).to.equal(0)
     console.log(await pendingOrders)
-
   })
 
   it("cancel timeout orders, from factory", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -235,7 +261,7 @@ describe("GmxOrder", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     await setGmxPrice("1295.9")
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -272,10 +298,8 @@ describe("GmxOrder", () => {
 
     await factory.cancelTimeoutOrders(1, trader1.address, weth.address, weth.address, true, pendingOrders)
 
-
     var pendingOrders = await proxy.getPendingGmxOrderKeys()
     expect(pendingOrders.length).to.equal(0)
     console.log(await pendingOrders)
-
   })
 })

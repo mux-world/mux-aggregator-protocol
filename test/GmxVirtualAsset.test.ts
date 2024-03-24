@@ -63,9 +63,18 @@ describe("GmxVirtualAsset", () => {
     const weth = (await ethers.getContractAt("MockERC20", wethAddress)) as MockERC20
     const usdc = (await ethers.getContractAt("MockERC20", usdcAddress)) as MockERC20
     const uni = (await ethers.getContractAt("MockERC20", uniAddress)) as MockERC20
-    const gmxFastPriceFeed = (await ethers.getContractAt("IGmxFastPriceFeed", FastPriceFeedAddress)) as IGmxFastPriceFeed
-    const gmxPositionRouter = (await ethers.getContractAt("IGmxPositionRouter", PositionRouterAddress)) as IGmxPositionRouter
-    const gmxPositionManager = (await ethers.getContractAt("IGmxPositionManager", PositionManagerAddress)) as IGmxPositionManager
+    const gmxFastPriceFeed = (await ethers.getContractAt(
+      "IGmxFastPriceFeed",
+      FastPriceFeedAddress
+    )) as IGmxFastPriceFeed
+    const gmxPositionRouter = (await ethers.getContractAt(
+      "IGmxPositionRouter",
+      PositionRouterAddress
+    )) as IGmxPositionRouter
+    const gmxPositionManager = (await ethers.getContractAt(
+      "IGmxPositionManager",
+      PositionManagerAddress
+    )) as IGmxPositionManager
     const gmxOrderBook = (await ethers.getContractAt("IGmxOrderBook", OrderBookAddress)) as IGmxOrderBook
     const gmxRouter = (await ethers.getContractAt("IGmxRouter", RouterAddress)) as IGmxRouter
     const gmxVault = (await ethers.getContractAt("IGmxVault", VaultAddress)) as IGmxVault
@@ -88,7 +97,20 @@ describe("GmxVirtualAsset", () => {
 
     // fixtures can return anything you consider useful for your tests
     console.log("fixtures: generated")
-    return { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxPositionManager, gmxOrderBook, gmxRouter, gmxVault, gmxReader, gmxVaultReader }
+    return {
+      weth,
+      usdc,
+      uni,
+      priceUpdater,
+      gmxFastPriceFeed,
+      gmxPositionRouter,
+      gmxPositionManager,
+      gmxOrderBook,
+      gmxRouter,
+      gmxVault,
+      gmxReader,
+      gmxVaultReader,
+    }
   }
 
   after(async () => {
@@ -104,11 +126,14 @@ describe("GmxVirtualAsset", () => {
   it("no borrow", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -149,7 +174,7 @@ describe("GmxVirtualAsset", () => {
     console.log(executionFee)
 
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: uni.address,
@@ -177,7 +202,7 @@ describe("GmxVirtualAsset", () => {
     var position = await proxy.getGmxPosition()
     expect(position.sizeUsd).to.equal(toUnit("6.389196", 30))
 
-    await factory.connect(trader1).closePosition(
+    await factory.connect(trader1).closePositionV2(
       {
         projectId: 1,
         collateralToken: uni.address,
@@ -195,8 +220,6 @@ describe("GmxVirtualAsset", () => {
     )
     await gmxPositionRouter.connect(priceUpdater).executeDecreasePosition(orderKey, trader1.address)
 
-
-
     var position = await proxy.getGmxPosition()
     expect(position.sizeUsd).to.equal(toUnit("0", 30))
   })
@@ -204,11 +227,14 @@ describe("GmxVirtualAsset", () => {
   it("try borrow", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -248,37 +274,40 @@ describe("GmxVirtualAsset", () => {
     console.log(executionFee)
 
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
-    await expect(factory.connect(trader1).openPosition(
-      {
-        projectId: 1,
-        collateralToken: uni.address,
-        assetToken: uni.address,
-        isLong: true,
-        tokenIn: usdc.address,
-        amountIn: toUnit("6.399196", 6), // 1
-        minOut: toWei("0"),
-        borrow: toWei("1"),
-        sizeUsd: toWei("6.389196"),
-        priceUsd: toWei("6.389196"),
-        tpPriceUsd: 0,
-        slPriceUsd: 0,
-        flags: 0x40,
-        referralCode: zBytes32,
-      },
-      { value: executionFee }
-    )).to.be.revertedWith("VirtualAsset")
+    await expect(
+      factory.connect(trader1).openPositionV2(
+        {
+          projectId: 1,
+          collateralToken: uni.address,
+          assetToken: uni.address,
+          isLong: true,
+          tokenIn: usdc.address,
+          amountIn: toUnit("6.399196", 6), // 1
+          minOut: toWei("0"),
+          borrow: toWei("1"),
+          sizeUsd: toWei("6.389196"),
+          priceUsd: toWei("6.389196"),
+          tpPriceUsd: 0,
+          slPriceUsd: 0,
+          flags: 0x40,
+          referralCode: zBytes32,
+        },
+        { value: executionFee }
+      )
+    ).to.be.revertedWith("VirtualAsset")
   })
-
-
 
   it("trade", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, uni, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -296,7 +325,6 @@ describe("GmxVirtualAsset", () => {
     await liquidityPool.setAssetAddress(1, weth.address)
     await liquidityPool.setAssetFunding(1, toWei("0.03081"), toWei("50.460957"))
     await hardhatSetArbERC20Balance(weth.address, liquidityPool.address, toWei("100000"))
-
 
     const PROJECT_GMX = 1
 
@@ -319,10 +347,9 @@ describe("GmxVirtualAsset", () => {
     const executionFee = await gmxPositionRouter.minExecutionFee()
     console.log(executionFee)
 
-
     await hardhatSetArbERC20Balance(uni.address, trader1.address, toWei("100000"))
     await uni.connect(trader1).approve(factory.address, toWei("10000"))
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: uni.address,

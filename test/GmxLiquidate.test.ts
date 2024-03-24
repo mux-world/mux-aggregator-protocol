@@ -63,9 +63,18 @@ describe("GmxLiquidate", () => {
     // contracts
     const weth = (await ethers.getContractAt("MockERC20", wethAddress)) as MockERC20
     const usdc = (await ethers.getContractAt("MockERC20", usdcAddress)) as MockERC20
-    const gmxFastPriceFeed = (await ethers.getContractAt("IGmxFastPriceFeed", FastPriceFeedAddress)) as IGmxFastPriceFeed
-    const gmxPositionRouter = (await ethers.getContractAt("IGmxPositionRouter", PositionRouterAddress)) as IGmxPositionRouter
-    const gmxPositionManager = (await ethers.getContractAt("IGmxPositionManager", PositionManagerAddress)) as IGmxPositionManager
+    const gmxFastPriceFeed = (await ethers.getContractAt(
+      "IGmxFastPriceFeed",
+      FastPriceFeedAddress
+    )) as IGmxFastPriceFeed
+    const gmxPositionRouter = (await ethers.getContractAt(
+      "IGmxPositionRouter",
+      PositionRouterAddress
+    )) as IGmxPositionRouter
+    const gmxPositionManager = (await ethers.getContractAt(
+      "IGmxPositionManager",
+      PositionManagerAddress
+    )) as IGmxPositionManager
     const gmxOrderBook = (await ethers.getContractAt("IGmxOrderBook", OrderBookAddress)) as IGmxOrderBook
     const gmxRouter = (await ethers.getContractAt("IGmxRouter", RouterAddress)) as IGmxRouter
     const gmxVault = (await ethers.getContractAt("IGmxVault", VaultAddress)) as IGmxVault
@@ -88,7 +97,19 @@ describe("GmxLiquidate", () => {
 
     // fixtures can return anything you consider useful for your tests
     console.log("fixtures: generated")
-    return { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxPositionManager, gmxOrderBook, gmxRouter, gmxVault, gmxReader, gmxVaultReader }
+    return {
+      weth,
+      usdc,
+      priceUpdater,
+      gmxFastPriceFeed,
+      gmxPositionRouter,
+      gmxPositionManager,
+      gmxOrderBook,
+      gmxRouter,
+      gmxVault,
+      gmxReader,
+      gmxVaultReader,
+    }
   }
 
   after(async () => {
@@ -103,11 +124,14 @@ describe("GmxLiquidate", () => {
   it("long ETH, collateral = USDC", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -147,7 +171,7 @@ describe("GmxLiquidate", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     await setGmxPrice("1295.9")
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -184,30 +208,34 @@ describe("GmxLiquidate", () => {
 
     await setGmxPrice("1286.5")
     var position = await proxy.getGmxPosition()
-    await expect(factory.connect(trader1).closePosition(
-      {
-        projectId: 1,
-        collateralToken: weth.address,
-        assetToken: weth.address,
-        isLong: true,
-        collateralUsd: toWei("0"),
-        sizeUsd: toWei("1296.5"),
-        priceUsd: toWei("1200"),
-        tpPriceUsd: 0,
-        slPriceUsd: 0,
-        flags: 0x40,
-        referralCode: zeroBytes32,
-      },
-      { value: executionFee }
-    )).to.be.revertedWith("MmMarginUnsafe")
+    await expect(
+      factory.connect(trader1).closePositionV2(
+        {
+          projectId: 1,
+          collateralToken: weth.address,
+          assetToken: weth.address,
+          isLong: true,
+          collateralUsd: toWei("0"),
+          sizeUsd: toWei("1296.5"),
+          priceUsd: toWei("1200"),
+          tpPriceUsd: 0,
+          slPriceUsd: 0,
+          flags: 0x40,
+          referralCode: zeroBytes32,
+        },
+        { value: executionFee }
+      )
+    ).to.be.revertedWith("MmMarginUnsafe")
 
     const [value, isNeg] = await proxy.getMarginValue2()
     expect(isNeg).to.be.false
 
-    var state = await proxy.muxAccountState();
+    var state = await proxy.muxAccountState()
     expect(state.isLiquidating).to.be.false
-    await factory.connect(priceUpdater).liquidatePosition(1, trader1.address, weth.address, weth.address, true, toWei("1200"), { value: executionFee })
-    var state = await proxy.muxAccountState();
+    await factory
+      .connect(priceUpdater)
+      .liquidatePosition(1, trader1.address, weth.address, weth.address, true, toWei("1200"), { value: executionFee })
+    var state = await proxy.muxAccountState()
     expect(state.isLiquidating).to.be.true
 
     console.log(await proxy.getPendingGmxOrderKeys())
@@ -225,11 +253,14 @@ describe("GmxLiquidate", () => {
   it("long ETH, collateral = USDC", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -269,7 +300,7 @@ describe("GmxLiquidate", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     await setGmxPrice("1295.9")
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -306,26 +337,28 @@ describe("GmxLiquidate", () => {
 
     await setGmxPrice("1226.5")
     var position = await proxy.getGmxPosition()
-    await expect(factory.connect(trader1).closePosition(
-      {
-        projectId: 1,
-        collateralToken: weth.address,
-        assetToken: weth.address,
-        isLong: true,
-        collateralUsd: toWei("0"),
-        sizeUsd: toWei("1296.5"),
-        priceUsd: toWei("1200"),
-        tpPriceUsd: 0,
-        slPriceUsd: 0,
-        flags: 0x40,
-        referralCode: zeroBytes32,
-      },
-      { value: executionFee }
-    )).to.be.revertedWith("MmMarginUnsafe")
+    await expect(
+      factory.connect(trader1).closePositionV2(
+        {
+          projectId: 1,
+          collateralToken: weth.address,
+          assetToken: weth.address,
+          isLong: true,
+          collateralUsd: toWei("0"),
+          sizeUsd: toWei("1296.5"),
+          priceUsd: toWei("1200"),
+          tpPriceUsd: 0,
+          slPriceUsd: 0,
+          flags: 0x40,
+          referralCode: zeroBytes32,
+        },
+        { value: executionFee }
+      )
+    ).to.be.revertedWith("MmMarginUnsafe")
 
     const [value, isNeg] = await proxy.getMarginValue2()
     expect(isNeg).to.be.true
-    var state = await proxy.muxAccountState();
+    var state = await proxy.muxAccountState()
     expect(state.isLiquidating).to.be.false
 
     const govAddr = await gmxVault.gov()
@@ -333,15 +366,11 @@ describe("GmxLiquidate", () => {
     await setBalance(gov.address, toWei("1"))
     await gmxVault.connect(gov).setLiquidator(priceUpdater.address, true)
 
-    await gmxVault.connect(priceUpdater).liquidatePosition(
-      proxy.address,
-      weth.address,
-      weth.address,
-      true,
-      proxy.address,
-    )
+    await gmxVault
+      .connect(priceUpdater)
+      .liquidatePosition(proxy.address, weth.address, weth.address, true, proxy.address)
 
-    var state = await proxy.muxAccountState();
+    var state = await proxy.muxAccountState()
     expect(state.isLiquidating).to.be.false
 
     console.log(await proxy.debtStates())
@@ -359,11 +388,14 @@ describe("GmxLiquidate", () => {
   it("long ETH, collateral = USDC", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -403,7 +435,7 @@ describe("GmxLiquidate", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     await setGmxPrice("1295.9")
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -440,27 +472,29 @@ describe("GmxLiquidate", () => {
 
     await setGmxPrice("1256.5")
     var position = await proxy.getGmxPosition()
-    await expect(factory.connect(trader1).closePosition(
-      {
-        projectId: 1,
-        collateralToken: weth.address,
-        assetToken: weth.address,
-        isLong: true,
-        collateralUsd: toWei("0"),
-        sizeUsd: toWei("1296.5"),
-        priceUsd: toWei("1200"),
-        tpPriceUsd: 0,
-        slPriceUsd: 0,
-        flags: 0x40,
-        referralCode: zeroBytes32,
-      },
-      { value: executionFee }
-    )).to.be.revertedWith("MmMarginUnsafe")
+    await expect(
+      factory.connect(trader1).closePositionV2(
+        {
+          projectId: 1,
+          collateralToken: weth.address,
+          assetToken: weth.address,
+          isLong: true,
+          collateralUsd: toWei("0"),
+          sizeUsd: toWei("1296.5"),
+          priceUsd: toWei("1200"),
+          tpPriceUsd: 0,
+          slPriceUsd: 0,
+          flags: 0x40,
+          referralCode: zeroBytes32,
+        },
+        { value: executionFee }
+      )
+    ).to.be.revertedWith("MmMarginUnsafe")
 
     const [value, isNeg] = await proxy.getMarginValue2()
     expect(isNeg).to.be.true
 
-    var state = await proxy.muxAccountState();
+    var state = await proxy.muxAccountState()
     expect(state.isLiquidating).to.be.false
 
     const govAddr = await gmxVault.gov()
@@ -468,34 +502,32 @@ describe("GmxLiquidate", () => {
     await setBalance(gov.address, toWei("1"))
     await gmxVault.connect(gov).setLiquidator(priceUpdater.address, true)
 
-    await gmxVault.connect(priceUpdater).liquidatePosition(
-      proxy.address,
-      weth.address,
-      weth.address,
-      true,
-      proxy.address,
-    )
+    await gmxVault
+      .connect(priceUpdater)
+      .liquidatePosition(proxy.address, weth.address, weth.address, true, proxy.address)
 
     console.log(await weth.balanceOf(proxy.address))
 
     await factory.connect(priceUpdater).withdraw(1, trader1.address, weth.address, weth.address, true)
     console.log(await proxy.debtStates())
-    var state = await proxy.muxAccountState();
+    var state = await proxy.muxAccountState()
     expect(state.isLiquidating).to.be.false
     const debt = await proxy.debtStates()
     expect(debt.cumulativeDebt).to.equal(toWei("0"))
     expect(debt.cumulativeFee).to.equal(toWei("0"))
   })
 
-
   it("long ETH, collateral = USDC", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -544,7 +576,11 @@ describe("GmxLiquidate", () => {
 
     console.log("weth", await weth.balanceOf(proxy.address))
     console.log(await proxy.debtStates())
-    await expect(factory.connect(priceUpdater).liquidatePosition(1, trader1.address, weth.address, weth.address, true, toWei("1200"))).to.be.revertedWith("NoPositionToLiquidate")
+    await expect(
+      factory
+        .connect(priceUpdater)
+        .liquidatePosition(1, trader1.address, weth.address, weth.address, true, toWei("1200"))
+    ).to.be.revertedWith("NoPositionToLiquidate")
     const debt = await proxy.debtStates()
     expect(debt.cumulativeDebt).to.equal(toWei("10"))
     expect(debt.cumulativeFee).to.equal(toWei("0"))
@@ -553,11 +589,14 @@ describe("GmxLiquidate", () => {
   it("long ETH, collateral = USDC", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -597,7 +636,7 @@ describe("GmxLiquidate", () => {
     await usdc.connect(trader1).approve(factory.address, toWei("10000"))
 
     await setGmxPrice("1295.9")
-    await factory.connect(trader1).openPosition(
+    await factory.connect(trader1).openPositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -631,5 +670,4 @@ describe("GmxLiquidate", () => {
     await expect(proxy.liquidatePosition(toWei("1290.1"), { value: executionFee })).to.be.revertedWith("MmMarginSafe")
     await proxy.liquidatePosition(toWei("1290"), { value: executionFee })
   })
-
 })

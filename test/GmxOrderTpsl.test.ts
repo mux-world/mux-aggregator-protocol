@@ -26,7 +26,7 @@ import {
   sleep,
   defaultProjectConfig,
   defaultAssetConfig,
-  USDGAddress
+  USDGAddress,
 } from "../scripts/deployUtils"
 import { hardhatSetArbERC20Balance, hardhatSkipBlockTime } from "../scripts/deployUtils"
 import { loadFixture, setBalance, time } from "@nomicfoundation/hardhat-network-helpers"
@@ -53,18 +53,27 @@ describe("GmxOrder", () => {
             jsonRpcUrl: "https://arb1.arbitrum.io/rpc",
             enabled: true,
             ignoreUnknownTxType: true, // added in our hardhat patch. see README.md
-            blockNumber: testCaseForkBlock // modify me if ./cache/hardhat-network-fork was cleared
-          }
-        }
-      ]
+            blockNumber: testCaseForkBlock, // modify me if ./cache/hardhat-network-fork was cleared
+          },
+        },
+      ],
     })
 
     // contracts
     const weth = (await ethers.getContractAt("MockERC20", wethAddress)) as MockERC20
     const usdc = (await ethers.getContractAt("MockERC20", usdcAddress)) as MockERC20
-    const gmxFastPriceFeed = (await ethers.getContractAt("IGmxFastPriceFeed", FastPriceFeedAddress)) as IGmxFastPriceFeed
-    const gmxPositionRouter = (await ethers.getContractAt("IGmxPositionRouter", PositionRouterAddress)) as IGmxPositionRouter
-    const gmxPositionManager = (await ethers.getContractAt("IGmxPositionManager", PositionManagerAddress)) as IGmxPositionManager
+    const gmxFastPriceFeed = (await ethers.getContractAt(
+      "IGmxFastPriceFeed",
+      FastPriceFeedAddress
+    )) as IGmxFastPriceFeed
+    const gmxPositionRouter = (await ethers.getContractAt(
+      "IGmxPositionRouter",
+      PositionRouterAddress
+    )) as IGmxPositionRouter
+    const gmxPositionManager = (await ethers.getContractAt(
+      "IGmxPositionManager",
+      PositionManagerAddress
+    )) as IGmxPositionManager
     const gmxOrderBook = (await ethers.getContractAt("IGmxOrderBook", OrderBookAddress)) as IGmxOrderBook
     const gmxRouter = (await ethers.getContractAt("IGmxRouter", RouterAddress)) as IGmxRouter
     const gmxVault = (await ethers.getContractAt("IGmxVault", VaultAddress)) as IGmxVault
@@ -87,13 +96,25 @@ describe("GmxOrder", () => {
 
     // fixtures can return anything you consider useful for your tests
     console.log("fixtures: generated")
-    return { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxPositionManager, gmxOrderBook, gmxRouter, gmxVault, gmxReader, gmxVaultReader }
+    return {
+      weth,
+      usdc,
+      priceUpdater,
+      gmxFastPriceFeed,
+      gmxPositionRouter,
+      gmxPositionManager,
+      gmxOrderBook,
+      gmxRouter,
+      gmxVault,
+      gmxReader,
+      gmxVaultReader,
+    }
   }
 
   after(async () => {
     await network.provider.request({
       method: "hardhat_reset",
-      params: []
+      params: [],
     })
   })
 
@@ -102,11 +123,14 @@ describe("GmxOrder", () => {
   it("cancel timeout orders", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -161,7 +185,7 @@ describe("GmxOrder", () => {
         tpPriceUsd: 0,
         slPriceUsd: 0,
         flags: 0x40,
-        referralCode: zeroBytes32
+        referralCode: zeroBytes32,
       },
       { value: executionFee }
     )
@@ -191,11 +215,14 @@ describe("GmxOrder", () => {
   it("cancel timeout orders 2", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -250,7 +277,7 @@ describe("GmxOrder", () => {
         tpPriceUsd: 0,
         slPriceUsd: 0,
         flags: 0x40,
-        referralCode: zeroBytes32
+        referralCode: zeroBytes32,
       },
       { value: executionFee }
     )
@@ -280,11 +307,14 @@ describe("GmxOrder", () => {
   it("tpsl order", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -342,7 +372,7 @@ describe("GmxOrder", () => {
         tpPriceUsd: toWei("1396.5"),
         slPriceUsd: toWei("1196.5"),
         flags: 0x08,
-        referralCode: zeroBytes32
+        referralCode: zeroBytes32,
       },
       { value: executionFee.add(executionFee2).add(executionFee2).add(3) }
     )
@@ -374,11 +404,14 @@ describe("GmxOrder", () => {
   it("tpsl order 2", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -436,7 +469,7 @@ describe("GmxOrder", () => {
         tpPriceUsd: toWei("1396.5"),
         slPriceUsd: toWei("0"),
         flags: 0x08,
-        referralCode: zeroBytes32
+        referralCode: zeroBytes32,
       },
       { value: executionFee.add(executionFee2).add(executionFee2).add(2) }
     )
@@ -463,11 +496,14 @@ describe("GmxOrder", () => {
   it("tpsl order 3", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -525,7 +561,7 @@ describe("GmxOrder", () => {
         tpPriceUsd: toWei("0"),
         slPriceUsd: toWei("1196.5"),
         flags: 0x08,
-        referralCode: zeroBytes32
+        referralCode: zeroBytes32,
       },
       { value: executionFee.add(executionFee2).add(executionFee2).add(2) }
     )
@@ -552,11 +588,14 @@ describe("GmxOrder", () => {
   it("cancel", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -611,7 +650,7 @@ describe("GmxOrder", () => {
         tpPriceUsd: toWei("1396.5"),
         slPriceUsd: toWei("1196.5"),
         flags: 0x40 | 0x8,
-        referralCode: zeroBytes32
+        referralCode: zeroBytes32,
       },
       { value: executionFee.mul(3).add(3) }
     )
@@ -634,14 +673,16 @@ describe("GmxOrder", () => {
   })
 
   it("trade", async () => {
-
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -737,7 +778,7 @@ describe("GmxOrder", () => {
     // console.log(pendingOrders1.concat().sort())
     expect(pendingOrders1.concat().sort()).to.deep.equal(pendingOrders0.slice(1).sort())
 
-    await factory.connect(trader1).closePosition(
+    await factory.connect(trader1).closePositionV2(
       {
         projectId: 1,
         collateralToken: weth.address,
@@ -761,16 +802,17 @@ describe("GmxOrder", () => {
     expect(pendingOrders2.concat().sort()).to.deep.equal(pendingOrders0.slice(3).sort())
   })
 
-
   it("trade 2", async () => {
-
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
-    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } = await loadFixture(deployTokenFixture)
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
 
     const setGmxPrice = async (price: any) => {
       const blockTime = await getBlockTime()
-      await gmxFastPriceFeed.connect(priceUpdater).setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
     }
 
     // give me some token
@@ -892,5 +934,4 @@ describe("GmxOrder", () => {
     expect(pendingOrders2.length).to.equal(0)
     console.log(pendingOrders2)
   })
-
 })
