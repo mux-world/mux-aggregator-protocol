@@ -17,7 +17,7 @@ enum TokenConfigIds {
     BOOST_FEE_RATE,
     INITIAL_MARGIN_RATE,
     MAINTENANCE_MARGIN_RATE,
-    LIQUIDATION_FEE_RATE,
+    LIQUIDATION_FEE_RATE, // an extra fee rate for liquidation
     REFERRENCE_ORACLE,
     REFERRENCE_ORACLE_DEVIATION,
     END
@@ -43,7 +43,7 @@ struct TokenConfigs {
     uint32 boostFeeRate;
     uint32 initialMarginRate;
     uint32 maintenanceMarginRate;
-    uint32 liquidationFeeRate;
+    uint32 liquidationFeeRate; // an extra fee rate for liquidation
     // --------------------------
     bytes32[20] reserved;
 }

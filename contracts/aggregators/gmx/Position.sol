@@ -66,7 +66,7 @@ contract Position is Storage, Debt {
 
     function _getMarginValue(
         IGmxVault.Position memory position,
-        uint256 deltaCollateral,
+        uint256 deltaCollateral, // without delta debt
         uint256 priceUsd
     ) internal view returns (uint256 accountValue, bool isNegative) {
         bool hasProfit = false;
@@ -113,7 +113,7 @@ contract Position is Storage, Debt {
 
     function _isMarginSafe(
         IGmxVault.Position memory position,
-        uint256 deltaCollateralUsd,
+        uint256 deltaCollateralUsd, // without delta debt
         uint256 deltaSizeUsd,
         uint256 priceUsd,
         uint32 threshold
@@ -139,7 +139,7 @@ contract Position is Storage, Debt {
         require(
             _isMarginSafe(
                 position,
-                context.amountIn,
+                context.amountOut, // without delta debt
                 context.sizeUsd,
                 LibGmx.getOraclePrice(_projectConfigs, _account.indexToken, !_account.isLong),
                 _assetConfigs.initialMarginRate
