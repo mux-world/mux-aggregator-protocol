@@ -139,4 +139,6 @@ interface IMuxOrderBook {
         uint96 maxRawAmount1, // erc20.decimals
         bytes32 userData
     ) external;
+
+    function setAggregator(address aggregatorAddress, bool isEnable) external;
 }

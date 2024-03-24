@@ -14,7 +14,7 @@
   "ProxyFactory__implementation": {
     "type": "plain",
     "name": "ProxyFactory__implementation",
-    "address": "0xE0634794dCfD43A158918208DFc7BD1c0D619bCb",
+    "address": "0x0523467DaEed5Df174E178FEE3C1777784cd4fBf",
     "deployedAt": 102927567
   },
   "ProxyFactory": {
@@ -30,19 +30,79 @@
   "Reader": {
     "type": "plain",
     "name": "Reader",
-    "address": "0x225aE665fD6E2C73D9A715Ad8F5b2Af05549fC9f",
-    "deployedAt": 69362323
+    "address": "0x697af744dCe3229cd43a16554B67267686FaDdAc",
+    "deployedAt": 158034183
   },
-  "LibGmx": {
+  "PriceHub__implementation": {
     "type": "plain",
-    "name": "LibGmx",
-    "address": "0x9568ee9aE3F91b830A649b058983291B77cd5FC9",
-    "deployedAt": 102928018
+    "name": "PriceHub__implementation",
+    "address": "0xc7891597fc894CC00CE14E88B1EBD437d294F76D",
+    "deployedAt": 147727874
+  },
+  "PriceHub": {
+    "type": "upgradeable",
+    "name": "PriceHub",
+    "address": "0xcEC7Aa1402CEc258dBEefa74cdf9393E33D15984",
+    "dependencies": {
+      "admin": "0x2257dc42b363d611898057354c031a670934ed3f",
+      "implementation": "0xc7891597fc894CC00CE14E88B1EBD437d294F76D"
+    },
+    "deployedAt": 147727887
+  },
+  "EventEmitter__implementation": {
+    "type": "plain",
+    "name": "EventEmitter__implementation",
+    "address": "0xd38151B54C6766528e9B15d8470b47F965cEB0D4",
+    "deployedAt": 159011763
+  },
+  "EventEmitter": {
+    "type": "upgradeable",
+    "name": "EventEmitter",
+    "address": "0x6c3A43eB0B374Ca565F926d3E32E91e71ea48329",
+    "dependencies": {
+      "admin": "0x90E680B92172C0c13345Fe8E54B993Eb845a77Db",
+      "implementation": "0x3De859eA7688544B6Eec86Cb1b9cf66480a451dd"
+    },
+    "deployedAt": 157060471
+  },
+  "LendingPool__implementation": {
+    "type": "plain",
+    "name": "LendingPool__implementation",
+    "address": "0x124Dce3BFE55BE7F9178c96cf6b5F928c409319e",
+    "deployedAt": 157326493
+  },
+  "LendingPool": {
+    "type": "upgradeable",
+    "name": "LendingPool",
+    "address": "0x1Bb8c982dcB712665b0eE501C737443EA9b76562",
+    "dependencies": {
+      "admin": "0x90E680B92172C0c13345Fe8E54B993Eb845a77Db",
+      "implementation": "0x124Dce3BFE55BE7F9178c96cf6b5F928c409319e"
+    },
+    "deployedAt": 157326504
+  },
+  "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2": {
+    "type": "plain",
+    "name": "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2",
+    "address": "0xB45DCBd209862d8F607862E719935F5c23329287",
+    "deployedAt": 157331043
+  },
+  "GmxV2Adapter": {
+    "type": "plain",
+    "name": "GmxV2Adapter",
+    "address": "0x47e521d7C60a54547368Ea47158e5Fb51556771c",
+    "deployedAt": 157331053
+  },
+  "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx": {
+    "type": "plain",
+    "name": "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx",
+    "address": "0xc096bB59365D1C33B92cCEb3140c6be2E7639c7a",
+    "deployedAt": 157387681
   },
   "GmxAdapter": {
     "type": "plain",
     "name": "GmxAdapter",
-    "address": "0xe739c5eBd761Bd7398c7F769a7caf29F6AC60f6b",
-    "deployedAt": 102928028
+    "address": "0x1Ce415CD823652954B3f5B8841d1Bdf2919c2031",
+    "deployedAt": 157387695
   }
 }

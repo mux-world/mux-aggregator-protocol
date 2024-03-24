@@ -30,7 +30,7 @@ interface ILiquidityPool {
         uint32 halfSpread; // 1e5
         // note: 24 bits remaining
         // slot
-        uint128 _reserved1;
+        uint96 credit;
         uint128 _reserved2;
         // slot
         uint96 collectedFee;
@@ -59,12 +59,7 @@ interface ILiquidityPool {
         uint128 shortCumulativeFunding; // Σ_t fundingRate_t * indexPrice_t
     }
 
-    function borrowAsset(
-        address borrower,
-        uint8 assetId,
-        uint256 rawAmount,
-        uint256 rawFee
-    ) external returns (uint256);
+    function borrowAsset(address borrower, uint8 assetId, uint256 rawAmount, uint256 rawFee) external returns (uint256);
 
     function repayAsset(
         address repayer,

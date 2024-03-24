@@ -31,11 +31,10 @@ import { IGmxReader } from "../typechain/contracts/interfaces/IGmxReader"
 import { IGmxPositionManager } from "../typechain/contracts/interfaces/IGmxPositionManager"
 
 describe("DelegateCallGuard", () => {
-
   const pad32r = (s: string) => {
     if (s.length > 66) {
-      return s;
-    } else if (s.startsWith('0x') || s.startsWith('0X')) {
+      return s
+    } else if (s.startsWith("0x") || s.startsWith("0X")) {
       return s + "0".repeat(66 - s.length)
     } else {
       return s + "0".repeat(64 - s.length)
@@ -56,12 +55,20 @@ describe("DelegateCallGuard", () => {
     const emptyAddr = "0x0000000000000000000000000000000000000000"
     const PROJECT_GMX = 1
     await factory.upgradeTo(PROJECT_GMX, aggregator.address)
-    await factory.setProjectAssetConfig(PROJECT_GMX, weth.address, [toUnit("0.000", 5), toUnit("0.006", 5), toUnit("0.005", 5), toUnit("0.002", 5), 0, toUnit("0.001", 5)]);
+    await factory.setProjectAssetConfig(PROJECT_GMX, weth.address, [
+      toUnit("0.000", 5),
+      toUnit("0.006", 5),
+      toUnit("0.005", 5),
+      toUnit("0.002", 5),
+      0,
+      toUnit("0.001", 5),
+    ])
     await factory.setBorrowConfig(PROJECT_GMX, weth.address, 1, toWei("1000"))
 
     await factory.createProxy(PROJECT_GMX, weth.address, weth.address, true)
 
-    await expect(aggregator.initialize(PROJECT_GMX, liquidityPool.address, emptyAddr, weth.address, weth.address, true)).to.be.revertedWith("")
+    await expect(
+      aggregator.initialize(PROJECT_GMX, liquidityPool.address, emptyAddr, weth.address, weth.address, true)
+    ).to.be.revertedWith("")
   })
-
 })

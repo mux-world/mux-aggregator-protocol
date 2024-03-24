@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
 import "../interfaces/IAggregator.sol";
-
 import "./Storage.sol";
 
 contract ProxyBeacon is Storage, IBeacon {
@@ -42,11 +41,7 @@ contract ProxyBeacon is Storage, IBeacon {
         emit Upgraded(projectId, newImplementation_);
     }
 
-    function _createProxy(
-        uint256 projectId,
-        bytes32 proxyId,
-        bytes memory bytecode
-    ) internal returns (address proxy) {
+    function _createProxy(uint256 projectId, bytes32 proxyId, bytes memory bytecode) internal returns (address proxy) {
         proxy = _getAddress(bytecode, proxyId);
         _proxyProjectIds[proxy] = projectId; // IMPORTANT
         assembly {

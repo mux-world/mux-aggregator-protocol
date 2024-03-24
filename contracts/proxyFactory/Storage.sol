@@ -5,7 +5,13 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract Storage is Initializable {
+    uint256 internal constant GMX_V1 = 1;
+    uint256 internal constant GMX_V2 = 2;
+
     uint256 internal constant VIRTUAL_ASSET_ID = 255;
+
+    uint256 internal constant SOURCE_ID_LIQUIDITY_POOL = 1;
+    uint256 internal constant SOURCE_ID_LENDING_POOL = 2;
 
     struct ConfigData {
         uint32 version;
@@ -45,5 +51,8 @@ contract Storage is Initializable {
 
     address internal _muxOrderBook;
 
-    bytes32[50] private __gaps;
+    mapping(uint256 => uint256) _liquiditySourceId; // projectId => sourceId
+    mapping(uint256 => address) _liquiditySource; // projectId => source
+
+    bytes32[48] private __gaps;
 }

@@ -2,48 +2,64 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+// aggregator
+import "../interfaces/IProxyFactory.sol";
+
+// gmx v1
 import "../interfaces/IGmxVault.sol";
 import "../interfaces/IGmxBasePositionManager.sol";
 import "../interfaces/IGmxPositionRouter.sol";
 import "../interfaces/IGmxOrderBook.sol";
-import "../interfaces/IProxyFactory.sol";
-import "../aggregators/gmx/Type.sol";
 import "../aggregators/gmx/GmxAdapter.sol";
 import "../aggregators/gmx/libs/LibGmx.sol";
 
+// gmx v2
+import "../aggregators/gmxV2/interfaces/gmx/IReader.sol" as GmxV2Reader;
+import "../aggregators/gmxV2/interfaces/gmx/IDataStore.sol" as GmxV2DataStore;
+import "../aggregators/gmxV2/interfaces/IGmxV2Adatper.sol";
+
 contract Reader {
+    // mux
     IProxyFactory public immutable aggregatorFactory;
+
+    // gmx v1
     IGmxVault public immutable gmxVault;
     IERC20 public immutable weth;
     IERC20 public immutable usdg;
 
-    uint256 internal constant GMX_PROJECT_ID = 1;
+    // gmx v2
+    address public immutable gmxV2DataStore;
+    GmxV2Reader.IReader public immutable gmxV2Reader;
+    address public immutable gmxV2ReferralStorage;
 
-    constructor(IProxyFactory aggregatorFactory_, IGmxVault gmxVault_, IERC20 weth_, IERC20 usdg_) {
+    uint256 internal constant GMX_PROJECT_ID = 1;
+    uint256 internal constant GMX_V2_PROJECT_ID = 2;
+    uint256 internal constant SOURCE_ID_LIQUIDITY_POOL = 1;
+    uint256 internal constant SOURCE_ID_LENDING_POOL = 2;
+
+    constructor(
+        // mux
+        IProxyFactory aggregatorFactory_,
+        // gmx v1
+        IGmxVault gmxVault_,
+        IERC20 weth_,
+        IERC20 usdg_,
+        // gmx v2
+        address gmxV2DataStore_,
+        GmxV2Reader.IReader gmxV2Reader_,
+        address gmxV2ReferralStorage_
+    ) {
         aggregatorFactory = aggregatorFactory_;
         gmxVault = gmxVault_;
         weth = weth_;
         usdg = usdg_;
+        gmxV2DataStore = gmxV2DataStore_;
+        gmxV2Reader = gmxV2Reader_;
+        gmxV2ReferralStorage = gmxV2ReferralStorage_;
     }
 
-    struct GmxAdapterStorage {
-        MuxCollateral[] collaterals;
-        GmxCoreStorage gmx;
-    }
-
-    function getGmxAdapterStorage(
-        IGmxBasePositionManager gmxPositionManager,
-        IGmxPositionRouter gmxPositionRouter,
-        IGmxOrderBook gmxOrderBook,
-        address[] memory aggregatorCollateralAddresses,
-        address[] memory gmxTokenAddresses
-    ) public view returns (GmxAdapterStorage memory store) {
-        // gmx
-        store.collaterals = _getMuxCollaterals(GMX_PROJECT_ID, aggregatorCollateralAddresses);
-        store.gmx = _getGmxCoreStorage(gmxPositionRouter, gmxOrderBook);
-        store.gmx.tokens = _getGmxCoreTokens(gmxPositionManager, gmxTokenAddresses);
-    }
-
+    // aggregator for gmx v1
     struct MuxCollateral {
         // config
         uint256 boostFeeRate; // 1e5
@@ -51,12 +67,41 @@ contract Reader {
         uint256 maintenanceMarginRate; // 1e5
         uint256 liquidationFeeRate; // 1e5
         // state
-        uint256 totalBorrow; // token.decimals
-        uint256 borrowLimit; // token.decimals
+        uint256 totalBorrow; // token.decimals. useless when borrowSource = lendingPool
+        uint256 borrowLimit; // token.decimals. useless when borrowSource = lendingPool
     }
 
-    function _getMuxCollaterals(
-        uint256 projectId,
+    // aggregator for gmx v2
+    struct AggregatorMarketConfig {
+        uint256 boostFeeRate; // 1e5
+        uint256 initialMarginRate; // 1e5
+        uint256 maintenanceMarginRate; // 1e5
+        uint256 liquidationFeeRate; // 1e5
+    }
+
+    // gmx v1
+    struct GmxAdapterStorage {
+        uint256 borrowSource; // 0 = liquidityPool, 1 = lendingPool
+        MuxCollateral[] collaterals;
+        GmxCoreStorage gmx;
+    }
+
+    // gmx v1
+    function getGmxAdapterStorage(
+        IGmxBasePositionManager gmxPositionManager,
+        IGmxPositionRouter gmxPositionRouter,
+        IGmxOrderBook gmxOrderBook,
+        address[] memory gmxAggregatorCollateralAddresses, // borrowed collaterals for gmx v1
+        address[] memory gmxTokenAddresses // gmx v1 tokens
+    ) public view returns (GmxAdapterStorage memory store) {
+        store.borrowSource = getLiquiditySource(GMX_PROJECT_ID);
+        store.collaterals = _getMuxCollateralsForGmxV1(gmxAggregatorCollateralAddresses);
+        store.gmx = _getGmxCoreStorage(gmxPositionRouter, gmxOrderBook);
+        store.gmx.tokens = _getGmxCoreTokens(gmxPositionManager, gmxTokenAddresses);
+    }
+
+    // gmx v1
+    function _getMuxCollateralsForGmxV1(
         address[] memory tokenAddresses
     ) internal view returns (MuxCollateral[] memory tokens) {
         tokens = new MuxCollateral[](tokenAddresses.length);
@@ -64,7 +109,7 @@ contract Reader {
             MuxCollateral memory token = tokens[i];
             // config
             uint256[] memory values = IProxyFactory(aggregatorFactory).getProjectAssetConfig(
-                projectId,
+                GMX_PROJECT_ID,
                 tokenAddresses[i]
             );
             require(values.length >= uint256(TokenConfigIds.END), "MissingConfigs");
@@ -74,12 +119,13 @@ contract Reader {
             token.liquidationFeeRate = uint256(values[uint256(TokenConfigIds.LIQUIDATION_FEE_RATE)]);
             // state
             (token.totalBorrow, token.borrowLimit, ) = IProxyFactory(aggregatorFactory).getBorrowStates(
-                projectId,
+                GMX_PROJECT_ID,
                 tokenAddresses[i]
             );
         }
     }
 
+    // gmx v1
     struct GmxCoreStorage {
         // config
         uint256 totalTokenWeights; // 1e0
@@ -96,6 +142,7 @@ contract Reader {
         GmxToken[] tokens;
     }
 
+    // gmx v1
     function _getGmxCoreStorage(
         IGmxPositionRouter gmxPositionRouter,
         IGmxOrderBook gmxOrderBook
@@ -114,6 +161,7 @@ contract Reader {
         store.usdgSupply = usdg.totalSupply();
     }
 
+    // gmx v1
     struct GmxToken {
         // config
         uint256 minProfit;
@@ -128,13 +176,14 @@ contract Reader {
         uint256 redemptionAmount;
         uint256 bufferAmounts;
         uint256 globalShortSize;
-        uint256 contractMinPrice;
-        uint256 contractMaxPrice;
+        uint256 contractMinPrice; // 1e30
+        uint256 contractMaxPrice; // 1e30
         uint256 guaranteedUsd;
         uint256 fundingRate;
         uint256 cumulativeFundingRate;
     }
 
+    // gmx v1
     function _getGmxCoreTokens(
         IGmxBasePositionManager gmxPositionManager,
         address[] memory tokenAddresses
@@ -178,12 +227,46 @@ contract Reader {
         }
     }
 
+    // gmx v2
+    struct GmxV2AdapterStorage {
+        AggregatorMarketConfig[] markets;
+    }
+
+    // gmx v2
+    function getGmxV2AdapterStorage(
+        address[] memory gmxV2MarketsAddresses
+    ) public view returns (GmxV2AdapterStorage memory store2) {
+        store2.markets = _getMarketConfigsForGmxV2(gmxV2MarketsAddresses);
+    }
+
+    // gmx v2
+    function _getMarketConfigsForGmxV2(
+        address[] memory marketAddresses
+    ) internal view returns (AggregatorMarketConfig[] memory tokens) {
+        tokens = new AggregatorMarketConfig[](marketAddresses.length);
+        for (uint256 i = 0; i < marketAddresses.length; i++) {
+            AggregatorMarketConfig memory token = tokens[i];
+            uint256[] memory values = IProxyFactory(aggregatorFactory).getProjectAssetConfig(
+                GMX_V2_PROJECT_ID,
+                marketAddresses[i]
+            );
+            require(values.length >= uint256(IGmxV2Adatper.MarketConfigIds.END), "MissingConfigs");
+            token.boostFeeRate = uint256(values[uint256(IGmxV2Adatper.MarketConfigIds.BOOST_FEE_RATE)]);
+            token.initialMarginRate = uint256(values[uint256(IGmxV2Adatper.MarketConfigIds.INITIAL_MARGIN_RATE)]);
+            token.maintenanceMarginRate = uint256(
+                values[uint256(IGmxV2Adatper.MarketConfigIds.MAINTENANCE_MARGIN_RATE)]
+            );
+            token.liquidationFeeRate = uint256(values[uint256(IGmxV2Adatper.MarketConfigIds.LIQUIDATION_FEE_RATE)]);
+        }
+    }
+
+    // all projects
     struct AggregatorSubAccount {
         // key
         address proxyAddress;
         uint256 projectId;
-        address collateralAddress;
-        address assetAddress;
+        address collateralAddress; // also known as debtTokenAddress
+        address assetAddress; // gmx v1: index address. gmx v2: market address
         bool isLong;
         // store
         bool isLiquidating;
@@ -192,43 +275,93 @@ contract Reader {
         uint256 debtEntryFunding; // 1e18
         uint256 proxyCollateralBalance; // token.decimals. collateral erc20 balance of the proxy
         uint256 proxyEthBalance; // 1e18. native balance of the proxy
-        // if gmx
+        // if gmx v1
         GmxCoreAccount gmx;
         GmxAdapterOrder[] gmxOrders;
+        // if gmx v2
+        GmxV2Reader.IReader.PositionInfo gmx2;
+        uint256 claimableFundingAmountLong;
+        uint256 claimableFundingAmountShort;
+        GmxV2AdapterOrder[] gmx2Orders;
     }
 
     // for UI
     function getAggregatorSubAccountsOfAccount(
+        // gmx v1
         IGmxPositionRouter gmxPositionRouter,
         IGmxOrderBook gmxOrderBook,
-        address accountAddress
+        // mux aggregator
+        address accountAddress,
+        // gmx v2
+        GmxV2Price[] memory gmxV2Prices // 1e30 - tokenDecimals
     ) public view returns (AggregatorSubAccount[] memory subAccounts) {
         address[] memory proxyAddresses = aggregatorFactory.getProxiesOf(accountAddress);
-        return getAggregatorSubAccountsOfProxy(gmxPositionRouter, gmxOrderBook, proxyAddresses);
+        return getAggregatorSubAccountsOfProxy(gmxPositionRouter, gmxOrderBook, proxyAddresses, gmxV2Prices);
     }
 
     // for keeper
     function getAggregatorSubAccountsOfProxy(
+        // gmx v1
         IGmxPositionRouter gmxPositionRouter,
         IGmxOrderBook gmxOrderBook,
-        address[] memory proxyAddresses
+        // mux aggregator
+        address[] memory proxyAddresses,
+        // gmx v2
+        GmxV2Price[] memory gmxV2Prices // 1e30 - tokenDecimals
     ) public view returns (AggregatorSubAccount[] memory subAccounts) {
         subAccounts = new AggregatorSubAccount[](proxyAddresses.length);
         for (uint256 i = 0; i < proxyAddresses.length; i++) {
-            // if gmx
-            GmxAdapter adapter = GmxAdapter(payable(proxyAddresses[i]));
-            subAccounts[i] = _getMuxAggregatorSubAccountForGmxAdapter(adapter);
-            AggregatorSubAccount memory subAccount = subAccounts[i];
-            subAccount.gmx = _getGmxCoreAccount(
-                address(adapter),
-                subAccount.collateralAddress,
-                subAccount.assetAddress,
-                subAccount.isLong
-            );
-            subAccount.gmxOrders = _getGmxAdapterOrders(gmxPositionRouter, gmxOrderBook, adapter);
+            uint256 projectId = getProxyProjectId(proxyAddresses[i]);
+            if (projectId == GMX_PROJECT_ID) {
+                // if gmx
+                GmxAdapter adapter = GmxAdapter(payable(proxyAddresses[i]));
+                subAccounts[i] = _getMuxAggregatorSubAccountForGmxAdapter(adapter);
+                AggregatorSubAccount memory subAccount = subAccounts[i];
+                subAccount.gmx = _getGmxCoreAccount(
+                    address(adapter),
+                    subAccount.collateralAddress,
+                    subAccount.assetAddress,
+                    subAccount.isLong
+                );
+                subAccount.gmxOrders = _getGmxAdapterOrders(gmxPositionRouter, gmxOrderBook, adapter);
+            } else if (projectId == GMX_V2_PROJECT_ID) {
+                // if gmx2
+                IGmxV2Adatper adapter = IGmxV2Adatper(payable(proxyAddresses[i]));
+                subAccounts[i] = _getMuxAggregatorSubAccountForGmx2Adapter(adapter);
+                AggregatorSubAccount memory subAccount = subAccounts[i];
+                subAccount.gmx2 = _getGmx2CoreAccount(address(adapter), subAccount, gmxV2Prices);
+                (subAccount.claimableFundingAmountLong, subAccount.claimableFundingAmountShort) = _getGmx2Claimable(
+                    subAccount.assetAddress,
+                    subAccount.proxyAddress
+                );
+                subAccount.gmx2Orders = _getGmx2AdapterOrders(adapter);
+            }
         }
     }
 
+    // deprecated
+    // this is for compatibility with both gmx v1 and gmx v2
+    function getLiquiditySource(uint256 projectId) public view returns (uint256) {
+        try aggregatorFactory.getLiquiditySource(projectId) returns (uint256 sourceId, address) {
+            return sourceId;
+        } catch {
+            // the old version of aggregatorFactory does not have this function
+            return SOURCE_ID_LIQUIDITY_POOL;
+        }
+    }
+
+    // deprecated
+    // this is for compatibility with both gmx v1 and gmx v2
+    function getProxyProjectId(address proxyAddress) public view returns (uint256) {
+        try aggregatorFactory.getProxyProjectId(proxyAddress) returns (uint256 id) {
+            return id;
+        } catch {
+            // the old version of aggregatorFactory does not have this function
+            return GMX_PROJECT_ID;
+        }
+    }
+
+    // gmx v1
     function _getMuxAggregatorSubAccountForGmxAdapter(
         GmxAdapter adapter
     ) internal view returns (AggregatorSubAccount memory account) {
@@ -244,6 +377,25 @@ contract Reader {
         account.proxyEthBalance = account.proxyAddress.balance;
     }
 
+    // gmx v2
+    function _getMuxAggregatorSubAccountForGmx2Adapter(
+        IGmxV2Adatper adapter
+    ) internal view returns (AggregatorSubAccount memory account) {
+        account.projectId = GMX_V2_PROJECT_ID;
+        IGmxV2Adatper.AccountState memory muxAccount = adapter.muxAccountState();
+        account.proxyAddress = address(adapter);
+        account.collateralAddress = muxAccount.collateralToken;
+        account.assetAddress = muxAccount.market;
+        account.isLong = muxAccount.isLong;
+        account.isLiquidating = muxAccount.isLiquidating;
+        account.cumulativeDebt = muxAccount.debtCollateralAmount;
+        account.cumulativeFee = muxAccount.pendingFeeCollateralAmount;
+        account.debtEntryFunding = muxAccount.debtEntryFunding;
+        account.proxyCollateralBalance = IERC20(account.collateralAddress).balanceOf(account.proxyAddress);
+        account.proxyEthBalance = account.proxyAddress.balance;
+    }
+
+    // gmx v1
     struct GmxCoreAccount {
         uint256 sizeUsd; // 1e30
         uint256 collateralUsd; // 1e30
@@ -252,6 +404,7 @@ contract Reader {
         uint256 entryFundingRate; // 1e6
     }
 
+    // gmx v1
     function _getGmxCoreAccount(
         address accountAddress,
         address collateralAddress,
@@ -275,6 +428,85 @@ contract Reader {
         account.entryFundingRate = entryFundingRate;
     }
 
+    // gmx v2
+    struct GmxV2Price {
+        address marketToken;
+        GmxV2Reader.IMarket.MarketPrices prices;
+    }
+
+    // gmx v2
+    function _getGmx2CoreAccount(
+        address adapter,
+        AggregatorSubAccount memory subAccount,
+        GmxV2Price[] memory prices // 1e30 - tokenDecimals
+    ) internal view returns (GmxV2Reader.IReader.PositionInfo memory account) {
+        // see gmx v2 PositionUtils.getPositionKey
+        bytes32 positionKey = keccak256(
+            abi.encode(adapter, subAccount.assetAddress /* market */, subAccount.collateralAddress, subAccount.isLong)
+        );
+        // check if the position exists
+        if (!hasGmxV2Position(positionKey)) {
+            account.position.flags.isLong = subAccount.isLong;
+            account.position.addresses.account = address(adapter);
+            account.position.addresses.market = subAccount.assetAddress;
+            account.position.addresses.collateralToken = subAccount.collateralAddress;
+            return account;
+        }
+
+        // find the price
+        GmxV2Price memory price;
+        bool found;
+        for (uint256 i = 0; i < prices.length; i++) {
+            if (prices[i].marketToken == subAccount.assetAddress /* market */) {
+                price = prices[i];
+                found = true;
+                break;
+            }
+        }
+        require(found, "GMX v2 price not found");
+        // see gmx v2 Reader.getAccountPositionInfoList
+        return
+            gmxV2Reader.getPositionInfo(
+                gmxV2DataStore,
+                gmxV2ReferralStorage,
+                positionKey,
+                price.prices,
+                0, // sizeDeltaUsd
+                address(0), // uiFeeReceiver
+                true // usePositionSizeAsSizeDeltaUsd
+            );
+    }
+
+    // gmx v2
+    function hasGmxV2Position(bytes32 positionKey) public view returns (bool) {
+        return GmxV2DataStore.IDataStore(gmxV2DataStore).containsBytes32(GmxV2DataStore.POSITION_LIST, positionKey);
+    }
+
+    // gmx v2
+    bytes32 public constant GMX_V2_CLAIMABLE_FUNDING_AMOUNT = keccak256(abi.encode("CLAIMABLE_FUNDING_AMOUNT"));
+    bytes32 public constant GMX_V2_LONG_TOKEN = keccak256(abi.encode("LONG_TOKEN"));
+    bytes32 public constant GMX_V2_SHORT_TOKEN = keccak256(abi.encode("SHORT_TOKEN"));
+
+    // gmx v2
+    function _getGmx2Claimable(
+        address gmxV2MarketAddress,
+        address proxyAddress
+    ) internal view returns (uint256 claimableFundingAmountLong, uint256 claimableFundingAmountShort) {
+        address longToken = GmxV2DataStore.IDataStore(gmxV2DataStore).getAddress(
+            keccak256(abi.encode(gmxV2MarketAddress, GMX_V2_LONG_TOKEN))
+        );
+        address shortToken = GmxV2DataStore.IDataStore(gmxV2DataStore).getAddress(
+            keccak256(abi.encode(gmxV2MarketAddress, GMX_V2_SHORT_TOKEN))
+        );
+        claimableFundingAmountLong = GmxV2DataStore.IDataStore(gmxV2DataStore).getUint(
+            keccak256(abi.encode(GMX_V2_CLAIMABLE_FUNDING_AMOUNT, gmxV2MarketAddress, longToken, proxyAddress))
+        );
+        claimableFundingAmountShort = GmxV2DataStore.IDataStore(gmxV2DataStore).getUint(
+            keccak256(abi.encode(GMX_V2_CLAIMABLE_FUNDING_AMOUNT, gmxV2MarketAddress, shortToken, proxyAddress))
+        );
+    }
+
+    // gmx v1
     struct GmxAdapterOrder {
         // aggregator order
         bytes32 orderHistoryKey; // see LibGmx.decodeOrderHistoryKey
@@ -290,6 +522,7 @@ contract Reader {
         bytes32 slOrderHistoryKey;
     }
 
+    // gmx v1
     function _getGmxAdapterOrders(
         IGmxPositionRouter gmxPositionRouter,
         IGmxOrderBook gmxOrderBook,
@@ -302,6 +535,7 @@ contract Reader {
         }
     }
 
+    // gmx v1
     function _getGmxAdapterOrder(
         IGmxPositionRouter gmxPositionRouter,
         IGmxOrderBook gmxOrderBook,
@@ -359,5 +593,43 @@ contract Reader {
             order.triggerAboveThreshold = triggerAboveThreshold;
         }
         (order.tpOrderHistoryKey, order.slOrderHistoryKey) = aggregator.getTpslOrderKeys(key);
+    }
+
+    // gmx v2
+    struct GmxV2AdapterOrder {
+        // aggregator order
+        bytes32 orderHistoryKey; // see LibGmx.decodeOrderHistoryKey
+        bool isIncrease;
+        uint256 debt; // decimals = erc20
+        uint32 timestamp;
+        uint256 blockNumber;
+        // gmx v2 order
+        bool isFillOrCancel;
+        GmxV2Reader.IOrder.Props gmxOrder;
+    }
+
+    // gmx v2
+    function _getGmx2AdapterOrders(IGmxV2Adatper adapter) internal view returns (GmxV2AdapterOrder[] memory orders) {
+        IGmxV2Adatper.PendingOrder[] memory pendingOrders = adapter.getPendingOrders();
+        orders = new GmxV2AdapterOrder[](pendingOrders.length);
+        for (uint256 i = 0; i < pendingOrders.length; i++) {
+            orders[i] = _getGmxV2AdapterOrder(pendingOrders[i]);
+        }
+    }
+
+    // gmx v2
+    function _getGmxV2AdapterOrder(
+        IGmxV2Adatper.PendingOrder memory pendingOrder
+    ) internal view returns (GmxV2AdapterOrder memory order) {
+        // aggregator order
+        order.orderHistoryKey = pendingOrder.key;
+        order.isIncrease = pendingOrder.isIncreasing;
+        order.debt = pendingOrder.debtCollateralAmount;
+        order.timestamp = uint32(pendingOrder.timestamp);
+        order.blockNumber = pendingOrder.blockNumber;
+
+        // gmx v2 order
+        order.gmxOrder = gmxV2Reader.getOrder(gmxV2DataStore, pendingOrder.key);
+        order.isFillOrCancel = order.gmxOrder.addresses.account == address(0);
     }
 }
