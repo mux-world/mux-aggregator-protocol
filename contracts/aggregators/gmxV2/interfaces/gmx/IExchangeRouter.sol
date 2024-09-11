@@ -11,6 +11,7 @@ interface IExchangeRouter {
         IOrder.DecreasePositionSwapType decreasePositionSwapType;
         bool isLong;
         bool shouldUnwrapNativeToken;
+        bool autoCancel;
         bytes32 referralCode;
     }
 
@@ -21,6 +22,7 @@ interface IExchangeRouter {
     // @param swapPath for order.swapPath
     struct CreateOrderParamsAddresses {
         address receiver;
+        address cancellationReceiver;
         address callbackContract;
         address uiFeeReceiver;
         address market;

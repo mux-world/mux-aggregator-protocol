@@ -333,6 +333,7 @@ library LibGmxV2 {
             IExchangeRouter.CreateOrderParams({
                 addresses: IExchangeRouter.CreateOrderParamsAddresses({
                     receiver: address(this),
+                    cancellationReceiver: address(this),
                     callbackContract: address(this),
                     uiFeeReceiver: address(0),
                     market: store.account.market,
@@ -351,6 +352,7 @@ library LibGmxV2 {
                 orderType: orderParams.orderType,
                 decreasePositionSwapType: IOrder.DecreasePositionSwapType.SwapPnlTokenToCollateralToken,
                 isLong: store.account.isLong,
+                autoCancel: false,
                 shouldUnwrapNativeToken: false,
                 referralCode: store.projectConfigs.referralCode
             })

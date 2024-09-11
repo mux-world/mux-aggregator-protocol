@@ -36,6 +36,7 @@ interface IOrder {
     struct Addresses {
         address account;
         address receiver;
+        address cancellationReceiver;
         address callbackContract;
         address uiFeeReceiver;
         address market;
@@ -54,12 +55,14 @@ interface IOrder {
         uint256 callbackGasLimit;
         uint256 minOutputAmount;
         uint256 updatedAtBlock;
+        uint256 updatedAtTime;
     }
 
     struct Flags {
         bool isLong;
         bool shouldUnwrapNativeToken;
         bool isFrozen;
+        bool autoCancel;
     }
 
     struct Props {
