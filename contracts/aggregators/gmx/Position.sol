@@ -96,13 +96,9 @@ contract Position is Storage, Debt {
             int256(gmxFundingFeeUsd);
         int256 effectiveDebt = (int256(_account.cumulativeDebt + _account.cumulativeFee + muxFundingFee) -
             int256(inflightBorrow + deltaCollateral));
-        if (_account.isLong) {
-            value -= (effectiveDebt * int256(position.averagePrice)) / int256(10 ** _account.collateralDecimals); // 1e30
-        } else {
-            uint256 tokenPrice = LibGmx.getOraclePrice(_projectConfigs, _account.collateralToken, false); // 1e30
-            value -= (effectiveDebt * int256(tokenPrice)) / int256(10 ** _account.collateralDecimals); // 1e30
-        }
-        if (value > 0) {
+        uint256 tokenPrice = LibGmx.getOraclePrice(_projectConfigs, _account.collateralToken, false);
+        value -= (effectiveDebt * int256(tokenPrice)) / int256(10 ** _account.collateralDecimals); // 1e30
+        if (value >= 0) {
             accountValue = uint256(value);
             isNegative = false;
         } else {
@@ -118,9 +114,6 @@ contract Position is Storage, Debt {
         uint256 priceUsd,
         uint32 threshold
     ) internal view returns (bool) {
-        if (position.sizeUsd == 0) {
-            return true;
-        }
         (uint256 accountValue, bool isNegative) = _getMarginValue(position, deltaCollateralUsd, priceUsd); // 1e30
         if (isNegative) {
             return false;
@@ -135,17 +128,6 @@ contract Position is Storage, Debt {
 
     function _openPosition(OpenPositionContext memory context) internal returns (bytes32 orderKey) {
         require(_pendingOrders.length() <= MAX_PENDING_ORDERS, "TooManyPendingOrders");
-        IGmxVault.Position memory position = _getGmxPosition();
-        require(
-            _isMarginSafe(
-                position,
-                context.amountOut, // without delta debt
-                context.sizeUsd,
-                LibGmx.getOraclePrice(_projectConfigs, _account.indexToken, !_account.isLong),
-                _assetConfigs.initialMarginRate
-            ),
-            "ImMarginUnsafe"
-        );
         address[] memory path = new address[](1);
         path[0] = _account.collateralToken;
         if (context.isMarket) {
@@ -188,6 +170,17 @@ contract Position is Storage, Debt {
                 context.borrow
             );
         }
+        IGmxVault.Position memory position = _getGmxPosition();
+        require(
+            _isMarginSafe(
+                position,
+                context.amountOut, // without delta debt
+                context.sizeUsd,
+                LibGmx.getOraclePrice(_projectConfigs, _account.indexToken, !_account.isLong),
+                _assetConfigs.initialMarginRate
+            ),
+            "ImMarginUnsafe"
+        );
         emit OpenPosition(_account.collateralToken, _account.indexToken, _account.isLong, context);
     }
 
