@@ -113,13 +113,6 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         debtData.hasValue = true;
     }
 
-    function disableBorrowConfig(uint256 projectId, address assetToken) external {
-        require(_maintainers[msg.sender] || msg.sender == owner(), "OnlyMaintainerOrAbove");
-        DebtData storage debtData = _debtData[projectId][assetToken];
-        emit DisableBorrowConfig(projectId, assetToken);
-        debtData.hasValue = true;
-    }
-
     function setProjectConfig(uint256 projectId, uint256[] memory values) external {
         require(_maintainers[msg.sender] || msg.sender == owner(), "OnlyMaintainerOrAbove");
         _setProjectConfig(projectId, values);
