@@ -294,10 +294,9 @@ library LibDebt {
         if (amount == 0) {
             return;
         }
-        // TODO: send failed try/catch
         if (token == WETH) {
             IWETH(WETH).withdraw(amount);
-            payable(store.account.owner).transfer(amount);
+            LibUtils.trySendNativeToken(store.account.owner, amount);
         } else {
             IERC20Upgradeable(token).safeTransfer(store.account.owner, amount);
         }

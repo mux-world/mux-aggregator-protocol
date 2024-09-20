@@ -101,7 +101,10 @@ describe("GmxV2-Position", async () => {
     await ethers.provider.send("hardhat_setCode", ["0xf60becbba223EEA9495Da3f606753867eC10d139", readerLiteCode])
 
     weth = await ethers.getContractAt("IWETH", "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1") // feedId = 0x74aca63821bf7ead199e924d261d277cbec96d1026ab65267d655c51b4536914
-    usdc = await ethers.getContractAt("IERC20", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831") // feedId = 0x95241f154d34539741b19ce4bae815473fd1b2a90ac3b4b023a692f31edfe90e
+    usdc = await ethers.getContractAt(
+      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
+      "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+    ) // feedId = 0x95241f154d34539741b19ce4bae815473fd1b2a90ac3b4b023a692f31edfe90e
 
     exchangeRouter = (await ethers.getContractAt(
       "IExchangeRouter",

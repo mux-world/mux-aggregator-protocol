@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
+import "../../../interfaces/IWETH.sol";
 import "../../../interfaces/IProxyFactory.sol";
 import "../../../interfaces/IArbSys.sol";
 import "../../../interfaces/IPriceHub.sol";
@@ -112,7 +113,7 @@ library LibUtils {
     function claimNativeToken(IGmxV2Adatper.GmxAdapterStoreV2 storage store) internal returns (uint256) {
         if (store.account.collateralToken != WETH) {
             uint256 balance = address(this).balance;
-            AddressUpgradeable.sendValue(payable(store.account.owner), balance);
+            trySendNativeToken(store.account.owner, balance);
             return balance;
         } else {
             return 0;
@@ -167,5 +168,14 @@ library LibUtils {
             store.account.market,
             address(this)
         );
+    }
+
+    function trySendNativeToken(address receiver, uint256 amount) internal {
+        (bool success, ) = receiver.call{ value: amount }("");
+        if (success) {
+            return;
+        }
+        IWETH(WETH).deposit{ value: amount }();
+        IERC20Upgradeable(WETH).safeTransfer(receiver, amount);
     }
 }

@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.17;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+
+import "../../../interfaces/IWETH.sol";
+
 library LibUtils {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+
     uint256 internal constant RATE_DENOMINATOR = 1e5;
 
     function toAddress(bytes32 value) internal pure returns (address) {
@@ -38,5 +45,14 @@ library LibUtils {
 
     function rate(uint256 value, uint32 rate_) internal pure returns (uint256) {
         return (value * rate_) / RATE_DENOMINATOR;
+    }
+
+    function trySendNativeToken(address weth, address receiver, uint256 amount) internal {
+        (bool success, ) = receiver.call{ value: amount }("");
+        if (success) {
+            return;
+        }
+        IWETH(weth).deposit{ value: amount }();
+        IERC20Upgradeable(weth).safeTransfer(receiver, amount);
     }
 }

@@ -17,6 +17,7 @@ import "../../components/ImplementationGuard.sol";
 
 import "./libs/LibGmx.sol";
 import "./libs/LibOracle.sol";
+import "./libs/LibUtils.sol";
 
 import "./Type.sol";
 import "./Storage.sol";
@@ -314,7 +315,7 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
             if (_account.collateralToken == _WETH) {
                 IWETH(_WETH).deposit{ value: ethBalance }();
             } else {
-                AddressUpgradeable.sendValue(payable(_account.account), ethBalance);
+                LibUtils.trySendNativeToken(_WETH, _account.account, ethBalance);
             }
         }
         IGmxVault.Position memory position = _getGmxPosition();
@@ -382,7 +383,7 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
     function _transferToUser(uint256 amount) internal {
         if (_account.collateralToken == _WETH) {
             IWETH(_WETH).withdraw(amount);
-            Address.sendValue(payable(_account.account), amount);
+            LibUtils.trySendNativeToken(_WETH, _account.account, amount);
         } else {
             IERC20Upgradeable(_account.collateralToken).safeTransfer(_account.account, amount);
         }
