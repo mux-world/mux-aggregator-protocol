@@ -94,10 +94,11 @@ contract GmxV2Adapter is
         bytes32 key,
         uint256 sizeDeltaUsd,
         uint256 acceptablePrice,
-        uint256 triggerPrice
+        uint256 triggerPrice,
+        bool autoCancel
     ) external onlyTrader onlyNotLiquidating nonReentrant {
         _store.updateConfigs();
-        _store.updateOrder(key, sizeDeltaUsd, acceptablePrice, triggerPrice);
+        _store.updateOrder(key, sizeDeltaUsd, acceptablePrice, triggerPrice, autoCancel);
     }
 
     function liquidatePosition(

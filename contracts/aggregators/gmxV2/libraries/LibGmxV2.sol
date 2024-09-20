@@ -364,12 +364,12 @@ library LibGmxV2 {
         bytes32 key,
         uint256 sizeDeltaUsd,
         uint256 acceptablePrice,
-        uint256 triggerPrice
+        uint256 triggerPrice,
+        bool autoCancel
     ) external {
         address exchangeRouter = store.projectConfigs.exchangeRouter;
         require(exchangeRouter != address(0), "ExchangeRouterUnset");
-        IExchangeRouter(exchangeRouter).updateOrder(key, sizeDeltaUsd, acceptablePrice, triggerPrice, 0);
-
+        IExchangeRouter(exchangeRouter).updateOrder(key, sizeDeltaUsd, acceptablePrice, triggerPrice, 0, autoCancel);
         IEventEmitter(store.projectConfigs.eventEmitter).onUpdateOrder(
             store.account.owner,
             key,

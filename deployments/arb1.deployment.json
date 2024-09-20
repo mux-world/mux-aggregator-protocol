@@ -96,13 +96,13 @@
   "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx": {
     "type": "plain",
     "name": "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx",
-    "address": "0xc096bB59365D1C33B92cCEb3140c6be2E7639c7a",
-    "deployedAt": 157387681
+    "address": "0xaF5e0cc4f2dd4064D3eC91473eb79595dB0CD24d",
+    "deployedAt": 252257442
   },
   "GmxAdapter": {
     "type": "plain",
     "name": "GmxAdapter",
-    "address": "0x1Ce415CD823652954B3f5B8841d1Bdf2919c2031",
-    "deployedAt": 157387695
+    "address": "0x69F538302d6CC75052Da78748539bA0a920e25dF",
+    "deployedAt": 252257463
   }
 }

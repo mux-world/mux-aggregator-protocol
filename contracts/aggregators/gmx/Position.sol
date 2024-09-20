@@ -118,8 +118,12 @@ contract Position is Storage, Debt {
         if (isNegative) {
             return false;
         }
-        uint256 liquidationFeeUsd = IGmxVault(_projectConfigs.vault).liquidationFeeUsd();
-        return accountValue >= (position.sizeUsd + deltaSizeUsd).rate(threshold).max(liquidationFeeUsd);
+        uint256 minValue = (position.sizeUsd + deltaSizeUsd).rate(threshold);
+        if (position.sizeUsd + deltaSizeUsd > 0) {
+            uint256 liquidationFeeUsd = IGmxVault(_projectConfigs.vault).liquidationFeeUsd();
+            minValue = minValue.max(liquidationFeeUsd);
+        }
+        return accountValue >= minValue;
     }
 
     function _getGmxPosition() internal view returns (IGmxVault.Position memory) {

@@ -86,7 +86,8 @@ interface IExchangeRouter {
         uint256 sizeDeltaUsd,
         uint256 acceptablePrice,
         uint256 triggerPrice,
-        uint256 minOutputAmount
+        uint256 minOutputAmount,
+        bool autoCancel
     ) external payable;
 
     /**
