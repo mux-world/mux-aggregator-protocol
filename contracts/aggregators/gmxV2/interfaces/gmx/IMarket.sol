@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "./IPrice.sol";
 
 interface IMarket {
+    // Market.sol
     struct Props {
         address marketToken;
         address indexToken;
@@ -11,6 +12,7 @@ interface IMarket {
         address shortToken;
     }
 
+    // MarketUtils.sol
     struct MarketPrices {
         IPrice.Props indexTokenPrice;
         IPrice.Props longTokenPrice;

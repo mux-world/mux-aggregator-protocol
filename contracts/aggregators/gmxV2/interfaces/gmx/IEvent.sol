@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.0;
 
+// EventUtils.sol
 interface IEvent {
     struct EmitPositionDecreaseParams {
         bytes32 key;
@@ -126,14 +127,15 @@ interface IEvent {
         string[] value;
     }
 
-    event EventLog(address msgSender, string eventName, string indexed eventNameHash, IEvent.EventLogData eventData);
+    // EventEmitter.sol
+    event EventLog(address msgSender, string eventName, string indexed eventNameHash, EventLogData eventData);
 
     event EventLog1(
         address msgSender,
         string eventName,
         string indexed eventNameHash,
         bytes32 indexed topic1,
-        IEvent.EventLogData eventData
+        EventLogData eventData
     );
 
     event EventLog2(
@@ -142,6 +144,6 @@ interface IEvent {
         string indexed eventNameHash,
         bytes32 indexed topic1,
         bytes32 indexed topic2,
-        IEvent.EventLogData eventData
+        EventLogData eventData
     );
 }

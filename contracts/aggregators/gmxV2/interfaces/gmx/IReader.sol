@@ -8,6 +8,7 @@ import "./IPosition.sol";
 import "./IPositionPricing.sol";
 
 interface IReader {
+    // ReaderPricingUtils.sol
     struct ExecutionPriceResult {
         int256 priceImpactUsd;
         uint256 priceImpactDiffUsd;
@@ -19,7 +20,6 @@ interface IReader {
         IPositionPricing.PositionFees fees;
         ExecutionPriceResult executionPriceResult;
         int256 basePnlUsd;
-        int256 uncappedBasePnlUsd;
         int256 pnlAfterPriceImpactUsd;
     }
 

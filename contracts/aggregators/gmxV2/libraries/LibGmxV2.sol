@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import "../../../interfaces/IWETH.sol";
-import "../interfaces/gmx/IReader.sol";
 import "../interfaces/gmx/IDataStore.sol";
 import "../interfaces/gmx/IExchangeRouter.sol";
 import "../interfaces/IGmxV2Adatper.sol";
@@ -347,7 +346,8 @@ library LibGmxV2 {
                     acceptablePrice: orderParams.acceptablePrice,
                     executionFee: orderParams.executionFee,
                     callbackGasLimit: orderParams.callbackGasLimit,
-                    minOutputAmount: 0
+                    minOutputAmount: 0, // swap is not supported
+                    validFromTime: 0
                 }),
                 orderType: orderParams.orderType,
                 decreasePositionSwapType: IOrder.DecreasePositionSwapType.SwapPnlTokenToCollateralToken,
@@ -369,7 +369,15 @@ library LibGmxV2 {
     ) external {
         address exchangeRouter = store.projectConfigs.exchangeRouter;
         require(exchangeRouter != address(0), "ExchangeRouterUnset");
-        IExchangeRouter(exchangeRouter).updateOrder(key, sizeDeltaUsd, acceptablePrice, triggerPrice, 0, autoCancel);
+        IExchangeRouter(exchangeRouter).updateOrder(
+            key,
+            sizeDeltaUsd,
+            acceptablePrice,
+            triggerPrice,
+            0, // minOutputAmount. swap is not supported
+            0, // validFromTime
+            autoCancel
+        );
         IEventEmitter(store.projectConfigs.eventEmitter).onUpdateOrder(
             store.account.owner,
             key,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.0;
 
+// only used for unit-tests
 interface IOrderHandler {
     struct RealtimeFeedReport {
         // The feed ID the report has data for

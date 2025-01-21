@@ -5,8 +5,7 @@ pragma solidity ^0.8.0;
 import "./IEvent.sol";
 import "./IOrder.sol";
 
-// @title IOrderCallbackReceiver
-// @dev interface for an order callback contract
+// IOrderCallbackReceiver.sol
 interface IOrderCallbackReceiver {
     // @dev called after an order execution
     // @param key the key of the order
