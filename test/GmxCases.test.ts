@@ -272,7 +272,7 @@ describe("GmxCases", () => {
   //   expect(await proxy.getMarginValue()).to.be.closeTo(toUnit("7.436236109656261612", 30), toUnit("1", 20))
   // })
 
-  it("partial close short ETH, collateral = USDC. pnl < 0", async () => {
+  it("partial close short ETH, collateral = USDC. pnl < 0. open open open close", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
     const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
@@ -434,7 +434,7 @@ describe("GmxCases", () => {
     expect(await proxy.getMarginValue()).to.be.closeTo(toUnit("5.482500673167347908", 30), toUnit("1", 20))
   })
 
-  it("partial close short ETH, collateral = USDC. pnl < 0", async () => {
+  it("partial close short ETH, collateral = USDC. pnl < 0. open close", async () => {
     // recover snapshot
     const [_, trader1] = await ethers.getSigners()
     const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
@@ -596,5 +596,69 @@ describe("GmxCases", () => {
     var after = await usdc.balanceOf(trader1.address)
     expect(after.sub(before)).to.be.closeTo(toUnit("4.682992", 6), 10)
     console.log(after)
+  })
+  
+  it("open without principal, should fail", async () => {
+    // recover snapshot
+    const [_, trader1] = await ethers.getSigners()
+    const { weth, usdc, priceUpdater, gmxFastPriceFeed, gmxPositionRouter, gmxOrderBook, gmxRouter, gmxVault } =
+      await loadFixture(deployTokenFixture)
+
+    const setGmxPrice = async (price: any) => {
+      const blockTime = await getBlockTime()
+      await gmxFastPriceFeed
+        .connect(priceUpdater)
+        .setPricesWithBits(getPriceBits([price, price, price, price]), blockTime)
+    }
+
+    // give me some token
+    await hardhatSetArbERC20Balance(usdc.address, trader1.address, toUnit("3000", 6))
+    
+    const liquidityPool = await createContract("MockLiquidityPool")
+    // USDC
+    await liquidityPool.setAssetAddress(0, usdc.address)
+    await hardhatSetArbERC20Balance(usdc.address, liquidityPool.address, toWei("100000"))
+    
+    await liquidityPool.setAssetAddress(1, weth.address)
+    await liquidityPool.setAssetFunding(1, toWei("0.03081"), toWei("50.460957"))
+    await hardhatSetArbERC20Balance(weth.address, liquidityPool.address, toWei("100000"))
+
+    const PROJECT_GMX = 1
+
+    const libGmx = await createContract("LibGmx")
+    const aggregator = await createContract("TestGmxAdapter", [wethAddress], { LibGmx: libGmx })
+    const factory = await createContract("ProxyFactory")
+    await factory.initialize(weth.address, liquidityPool.address)
+    await factory.setProjectConfig(PROJECT_GMX, defaultProjectConfig)
+    await factory.setProjectAssetConfig(PROJECT_GMX, usdc.address, defaultAssetConfig())
+    await factory.setProjectAssetConfig(PROJECT_GMX, weth.address, defaultAssetConfig())
+    await factory.setBorrowConfig(PROJECT_GMX, usdc.address, 0, toWei("1000"))
+    await factory.setBorrowConfig(PROJECT_GMX, weth.address, 1, toWei("1000"))
+    await factory.upgradeTo(PROJECT_GMX, aggregator.address)
+    await factory.setKeeper(priceUpdater.address, true)
+
+    const executionFee = await gmxPositionRouter.minExecutionFee()
+    console.log(executionFee)
+
+    await setGmxPrice("1295.9")
+    await expect(factory.connect(trader1).openPositionV2(
+      {
+        projectId: 1,
+        collateralToken: usdc.address,
+        assetToken: weth.address,
+        isLong: false,
+        tokenIn: usdc.address,
+        amountIn: toUnit("0", 6),
+        minOut: toWei("0"),
+        borrow: toUnit("1000", 6),
+        sizeUsd: toWei("1296.5"),
+        priceUsd: toWei("1296.5"),
+        tpPriceUsd: 0,
+        slPriceUsd: 0,
+        flags: 0x40,
+        referralCode: zeroBytes32,
+      },
+      { value: executionFee }
+    )).to.be.revertedWith("ImMarginUnsafe");
   })
 })
