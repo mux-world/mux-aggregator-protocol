@@ -110,7 +110,8 @@ contract GmxV2Adapter is
         _store.liquidatePosition(prices, executionFee, callbackGasLimit);
     }
 
-    function cancelOrder(bytes32 key) external onlyTrader onlyNotLiquidating nonReentrant {
+    function cancelOrder(bytes32 key) external onlyNotLiquidating nonReentrant {
+        require(_isValidCaller() || IProxyFactory(_store.factory).isKeeper(msg.sender), "OnlyTraderOrKeeper");
         _store.updateConfigs();
         _store.cancelOrder(key);
     }

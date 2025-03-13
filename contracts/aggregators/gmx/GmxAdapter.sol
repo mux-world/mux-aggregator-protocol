@@ -365,7 +365,11 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
         );
     }
 
-    function cancelOrders(bytes32[] memory keys) external onlyTraderOrFactory nonReentrant {
+    function cancelOrders(bytes32[] memory keys) external nonReentrant {
+        require(
+            msg.sender == _account.account || msg.sender == _factory || IProxyFactory(_factory).isKeeper(msg.sender),
+            "OnlyTraderOrFactoryOrKeeper"
+        );
         _cleanOrders();
         _cancelOrders(keys);
     }
