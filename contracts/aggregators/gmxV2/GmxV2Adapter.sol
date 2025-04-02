@@ -134,6 +134,20 @@ contract GmxV2Adapter is
             );
     }
 
+    function claimCollateral(
+        address[] memory markets,
+        address[] memory tokens,
+        uint256[] memory timeKeys
+    ) external payable returns (uint256[] memory) {
+        return
+            IExchangeRouter(_store.projectConfigs.exchangeRouter).claimCollateral(
+                markets,
+                tokens,
+                timeKeys,
+                address(this)
+            );
+    }
+
     function claimToken(address token) external returns (uint256) {
         return _store.claimToken(token);
     }

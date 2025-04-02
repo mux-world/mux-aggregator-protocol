@@ -5,6 +5,12 @@
     "address": "0xE52d9a3CBA458832A65cfa9FC8a74bacAbdeB32A",
     "deployedAt": 42082388
   },
+  "PreProxyAdmin": {
+    "type": "plain",
+    "name": "ProxyAdmin",
+    "address": "0x90E680B92172C0c13345Fe8E54B993Eb845a77Db",
+    "deployedAt": 42082388
+  },
   "TimelockControllerUpgradeable": {
     "type": "upgradeable",
     "name": "TimelockControllerUpgradeable",
@@ -14,8 +20,8 @@
   "ProxyFactory__implementation": {
     "type": "plain",
     "name": "ProxyFactory__implementation",
-    "address": "0x0523467DaEed5Df174E178FEE3C1777784cd4fBf",
-    "deployedAt": 102927567
+    "address": "0x49da746B58812FeCc92D8E150FC0c980948440f2",
+    "deployedAt": 322012533
   },
   "ProxyFactory": {
     "type": "upgradeable",
@@ -26,12 +32,6 @@
       "implementation": "0xe669424c3b60F8611434C03D2Bf211b91A54240D"
     },
     "deployedAt": 30795158
-  },
-  "Reader": {
-    "type": "plain",
-    "name": "Reader",
-    "address": "0x697af744dCe3229cd43a16554B67267686FaDdAc",
-    "deployedAt": 158034183
   },
   "PriceHub__implementation": {
     "type": "plain",
@@ -81,28 +81,46 @@
     },
     "deployedAt": 157326504
   },
-  "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2": {
+  "GainsReader": {
     "type": "plain",
-    "name": "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2",
-    "address": "0xB45DCBd209862d8F607862E719935F5c23329287",
-    "deployedAt": 157331043
+    "name": "GainsReader",
+    "address": "0x1305076D546b14Be8d8561d528A09341dA1b42a0",
+    "deployedAt": 307961744
   },
   "GmxV2Adapter": {
     "type": "plain",
     "name": "GmxV2Adapter",
-    "address": "0x47e521d7C60a54547368Ea47158e5Fb51556771c",
-    "deployedAt": 157331053
+    "address": "0xF523Cb716b4f280540f631A6855a7Db4Ddd87D73",
+    "deployedAt": 278369389
   },
   "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx": {
     "type": "plain",
     "name": "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx",
-    "address": "0xaF5e0cc4f2dd4064D3eC91473eb79595dB0CD24d",
-    "deployedAt": 252257442
+    "address": "0x96bB21e8Ef87C370f1f9f92623F9Bf0B012d324b",
+    "deployedAt": 255402062
   },
   "GmxAdapter": {
     "type": "plain",
     "name": "GmxAdapter",
-    "address": "0x69F538302d6CC75052Da78748539bA0a920e25dF",
-    "deployedAt": 252257463
+    "address": "0x908201c86e0E242564B276D9908e195fFac76154",
+    "deployedAt": 255402108
+  },
+  "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2": {
+    "type": "plain",
+    "name": "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2",
+    "address": "0x75e9350098cb9586baa0FF1833Cf284a5E1819c6",
+    "deployedAt": 278369374
+  },
+  "ReaderLite": {
+    "type": "plain",
+    "name": "ReaderLite",
+    "address": "0x92732ccbB522f9dD53Eed9B6b3F4B8aeC50CDe4f",
+    "deployedAt": 158034183
+  },
+  "Reader": {
+    "type": "plain",
+    "name": "Reader",
+    "address": "0xB3dF04aabc5CB86Fa73cF9eDdA53939A40937E9d",
+    "deployedAt": 278444534
   }
 }

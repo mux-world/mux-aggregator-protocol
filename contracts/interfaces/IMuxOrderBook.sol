@@ -51,6 +51,14 @@ interface IMuxOrderBook {
     function cancelOrder(uint64 orderId) external;
 
     /**
+     * @notice Deposit collateral into a subAccount.
+     *
+     * @param  subAccountId       sub account id. see LibSubAccount.decodeSubAccountId.
+     * @param  collateralAmount   collateral amount. decimals = erc20.decimals.
+     */
+    function depositCollateral(bytes32 subAccountId, uint256 collateralAmount) external payable;
+
+    /**
      * @notice Open/close position. called by Trader.
      *
      *         Market order will expire after marketOrderTimeout seconds.
@@ -69,17 +77,6 @@ interface IMuxOrderBook {
      * @param  deadline           a unix timestamp after which the limit/trigger order MUST NOT be filled. fill 0 for market order.
      * @param  referralCode       set referral code of the trading account.
      */
-    function placePositionOrder2(
-        bytes32 subAccountId,
-        uint96 collateralAmount, // erc20.decimals
-        uint96 size, // 1e18
-        uint96 price, // 1e18
-        uint8 profitTokenId,
-        uint8 flags,
-        uint32 deadline, // 1e0
-        bytes32 referralCode
-    ) external payable;
-
     function placePositionOrder3(
         bytes32 subAccountId,
         uint96 collateralAmount, // erc20.decimals

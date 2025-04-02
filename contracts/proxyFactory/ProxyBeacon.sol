@@ -42,9 +42,11 @@ contract ProxyBeacon is Storage, IBeacon {
     }
 
     function _createProxy(uint256 projectId, bytes32 proxyId, bytes memory bytecode) internal returns (address proxy) {
-        proxy = _getAddress(bytecode, proxyId);
-        _proxyProjectIds[proxy] = projectId; // IMPORTANT
+        address _proxy = _getAddress(bytecode, proxyId);
+        _proxyProjectIds[_proxy] = projectId; // IMPORTANT. set this before create2
         assembly {
+            // NOTE: BeaconProxy constructor will call `data`, which is initialize() of xxAdapter.
+            //       calling initialize() need ProxyFactory.implementation() which verifies _proxyProjectIds[]
             proxy := create2(0x0, add(0x20, bytecode), mload(bytecode), proxyId)
         }
         require(proxy != address(0), "CreateFailed");

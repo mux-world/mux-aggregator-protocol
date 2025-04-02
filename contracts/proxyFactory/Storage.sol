@@ -54,5 +54,9 @@ contract Storage is Initializable {
     mapping(uint256 => uint256) _liquiditySourceId; // projectId => sourceId
     mapping(uint256 => address) _liquiditySource; // projectId => source
 
-    bytes32[48] private __gaps;
+    address internal _mux3OrderBook;
+
+    mapping(address => bool) internal _delegators;
+
+    bytes32[46] private __gaps;
 }

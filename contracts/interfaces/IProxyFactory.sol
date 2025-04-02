@@ -86,6 +86,7 @@ interface IProxyFactory {
     event DisableBorrowConfig(uint256 projectId, address assetToken);
     event MuxCall(address target, uint256 value, bytes data);
     event SetLiquiditySource(uint256 indexed projectId, uint256 sourceId, address source);
+    event SetDelegator(address delegator, bool enable);
 
     function weth() external view returns (address);
 
@@ -127,4 +128,10 @@ interface IProxyFactory {
         uint256 fee,
         uint256 badDebt_
     ) external;
+
+    function proxyFunctionCall(ProxyCallParams calldata params) external payable;
+
+    function proxyFunctionCall2(address account, ProxyCallParams calldata params) external payable;
+
+    function multicall(bytes[] calldata proxyCalls) external payable returns (bytes[] memory results);
 }

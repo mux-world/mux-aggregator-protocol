@@ -12,6 +12,8 @@ import "../interfaces/IProxyFactory.sol";
 import "../interfaces/IAggregator.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IReferralManager.sol";
+import "../interfaces/IMux3OrderBook.sol";
+import "../interfaces/IMuxOrderBook.sol";
 
 import "./Storage.sol";
 import "./ProxyBeacon.sol";
@@ -83,6 +85,21 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         (sourceId, source) = _getLiquiditySource(projectId);
     }
 
+    function getProxyAddress(
+        uint256 projectId,
+        address account,
+        address collateralToken,
+        address assetToken,
+        bool isLong
+    ) public view returns (address proxy) {
+        bytes32 proxyId = _makeProxyId(projectId, account, collateralToken, assetToken, isLong);
+        proxy = _tradingProxies[proxyId];
+        if (proxy != address(0)) {
+            return proxy;
+        }
+        proxy = _getBeaconProxyAddress(projectId, _liquidityPool, account, collateralToken, assetToken, isLong);
+    }
+
     // =========================== management interfaces ===========================
     function setReferralManager(address referralManager) external onlyOwner {
         _referralManager = referralManager;
@@ -90,6 +107,10 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
 
     function setMuxOrderBook(address muxOrderBook) external onlyOwner {
         _muxOrderBook = muxOrderBook;
+    }
+
+    function setMux3OrderBook(address mux3OrderBook) external onlyOwner {
+        _mux3OrderBook = mux3OrderBook;
     }
 
     // SOURCE_ID_LIQUIDITY_POOL = 1;
@@ -128,6 +149,11 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         emit SetKeeper(keeper, enable);
     }
 
+    function setDelegator(address delegator, bool enable) external onlyOwner {
+        _delegators[delegator] = enable;
+        emit SetDelegator(delegator, enable);
+    }
+
     function setProjectAssetConfig(uint256 projectId, address assetToken, uint256[] memory values) external onlyOwner {
         _setProjectAssetConfig(projectId, assetToken, values);
     }
@@ -154,160 +180,95 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
     }
 
     // ======================== method called by user ========================
-    function createProxy(
-        uint256 projectId,
-        address collateralToken,
-        address assetToken,
-        bool isLong
-    ) public returns (address) {
-        uint8 collateralId = getAssetId(projectId, collateralToken);
-        _verifyAssetId(collateralToken, collateralId);
-        return
-            _createBeaconProxy(
-                projectId,
-                _liquidityPool,
-                msg.sender,
-                assetToken,
-                collateralToken,
-                collateralId,
-                isLong
-            );
-    }
-
-    function openPositionV2(OpenPositionArgsV2 calldata args) external payable {
-        require(args.projectId == GMX_V1, "OnlyGmxV1");
-        _openPosition(args, msg.value);
-    }
-
-    function openPositionV3(
-        OpenPositionArgsV2 calldata args,
-        MuxOrderParams calldata muxParams,
-        uint256 muxValue
-    ) external payable {
-        require(args.projectId == GMX_V1, "OnlyGmxV1");
-        require(msg.value >= muxValue, "InsufficientValue");
-        _openPosition(args, msg.value - muxValue);
-        if (muxParams.subAccountId != bytes32(0)) {
-            require(msg.sender == _getSubAccountOwner(muxParams.subAccountId), "SubAccountNotMatch");
-            IMuxOrderBook(_muxOrderBook).placePositionOrder3{ value: muxValue }(
-                muxParams.subAccountId,
-                muxParams.collateralAmount,
-                muxParams.size,
-                muxParams.price,
-                muxParams.profitTokenId,
-                muxParams.flags,
-                muxParams.deadline,
-                muxParams.referralCode,
-                muxParams.extra
-            );
-        }
-    }
-
-    function _openPosition(OpenPositionArgsV2 memory args, uint256 value) internal {
-        address proxy = _preprocessOrder(
-            args.projectId,
-            args.collateralToken,
-            args.assetToken,
-            args.isLong,
-            args.referralCode
-        );
-        if (args.tokenIn != _weth) {
-            IERC20Upgradeable(args.tokenIn).safeTransferFrom(msg.sender, proxy, args.amountIn);
-        }
-        IAggregator(proxy).openPosition{ value: value }(
-            args.tokenIn,
-            args.amountIn,
-            args.minOut,
-            args.borrow,
-            args.sizeUsd,
-            args.priceUsd,
-            args.tpPriceUsd,
-            args.slPriceUsd,
-            args.flags
-        );
-    }
-
-    function cancelOrders(
-        uint256 projectId,
-        address collateralToken,
-        address assetToken,
-        bool isLong,
-        bytes32[] calldata keys
-    ) external {
-        require(projectId == GMX_V1, "OnlyGmxV1");
-        address proxy = _mustGetProxy(projectId, msg.sender, collateralToken, assetToken, isLong);
-        IAggregator(proxy).cancelOrders(keys);
-    }
-
-    function closePositionV2(ClosePositionArgsV2 calldata args) external payable {
-        require(args.projectId == GMX_V1, "OnlyGmxV1");
-        address proxy = _mustGetProxy(args.projectId, msg.sender, args.collateralToken, args.assetToken, args.isLong);
-        if (args.referralCode != bytes32(0) && _referralManager != address(0)) {
-            IReferralManager(_referralManager).setReferrerCodeFor(proxy, args.referralCode);
-        }
-        IAggregator(proxy).closePosition{ value: msg.value }(
-            args.collateralUsd,
-            args.sizeUsd,
-            args.priceUsd,
-            args.tpPriceUsd,
-            args.slPriceUsd,
-            args.flags
-        );
-    }
-
-    function updateOrder(
-        uint256 projectId,
-        address collateralToken,
-        address assetToken,
-        bool isLong,
-        OrderParams[] memory orderParams
-    ) external {
-        require(projectId == GMX_V1, "OnlyGmxV1");
-        address proxy = _mustGetProxy(projectId, msg.sender, collateralToken, assetToken, isLong);
-        for (uint256 i = 0; i < orderParams.length; i++) {
-            IAggregator(proxy).updateOrder(
-                orderParams[i].orderKey,
-                orderParams[i].collateralDelta,
-                orderParams[i].sizeDelta,
-                orderParams[i].triggerPrice,
-                orderParams[i].triggerAboveThreshold
-            );
-        }
-    }
-
-    // new methods
     function muxFunctionCall(bytes memory muxCallData, uint256 value) external payable {
         bytes32 subAccountId = _decodeSubAccountId(muxCallData);
-        require(msg.sender == _getSubAccountOwner(subAccountId), "SubAccountNotMatch");
+        // account owner or delegator
+        address account = _getSubAccountOwner(subAccountId);
+        _verifyCaller(account);
+        bytes4 sig = _decodeFunctionSig(muxCallData);
+
+        require(
+            sig == IMuxOrderBook.placePositionOrder3.selector ||
+                sig == IMuxOrderBook.depositCollateral.selector ||
+                sig == IMuxOrderBook.placeWithdrawalOrder.selector,
+            "Forbidden"
+        );
         _muxOrderBook.functionCallWithValue(muxCallData, value);
     }
 
-    function proxyFunctionCall(ProxyCallParams calldata params) external payable {
-        address proxy = _preprocessOrder(
-            params.projectId,
-            params.collateralToken,
-            params.assetToken,
-            params.isLong,
-            params.referralCode
+    /**
+     * @notice A trader should set initial leverage at least once before open-position
+     * @param collateralToken The token to deposit, 0x0 or 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
+     * @param collateralAmount The amount of collateral to deposit, following collateral token decimals
+     * @param positionOrderCallData The call data for placePositionOrder.
+     *                              The data should include the referral code but function selector
+     * @param initialLeverage The initial leverage to set
+     * @param gas The amount of gas to deposit, must included in sent value
+     */
+    function mux3PositionCall(
+        address collateralToken,
+        uint256 collateralAmount,
+        bytes memory positionOrderCallData,
+        uint256 initialLeverage, // 0 = ignore
+        uint256 gas // 0 = ignore
+    ) external payable {
+        // *      example for collateral = USDC:
+        // *        multicall([
+        // *          wrapNative(gas),
+        // *          depositGas(gas),
+        // *          transferToken(collateral),
+        // *          placePositionOrder(positionOrderParams),
+        // *        ])
+        // *      example for collateral = ETH:
+        // *        multicall([
+        // *          wrapNative(gas),
+        // *          depositGas(gas),
+        // *          wrapNative(collateral),
+        // *          placePositionOrder(positionOrderParams),
+        // *        ])
+        bytes32 positionId = _decodeBytes32(positionOrderCallData, 0);
+        address accountOwner = _getSubAccountOwner(positionId);
+        _verifyCaller(accountOwner);
+        if (gas > 0) {
+            IMux3OrderBook(_mux3OrderBook).wrapNative{ value: gas }(gas);
+            IMux3OrderBook(_mux3OrderBook).depositGas(accountOwner, gas);
+        }
+        if (collateralAmount > 0) {
+            if (
+                collateralToken == address(0x0) ||
+                collateralToken == address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+            ) {
+                IMux3OrderBook(_mux3OrderBook).wrapNative{ value: collateralAmount }(collateralAmount);
+            } else {
+                IMux3OrderBook(_mux3OrderBook).transferTokenFrom(accountOwner, collateralToken, collateralAmount);
+            }
+        }
+        if (initialLeverage > 0) {
+            bytes32 marketId = _decodeBytes32(positionOrderCallData, 1);
+            IMux3OrderBook(_mux3OrderBook).setInitialLeverage(positionId, marketId, initialLeverage);
+        }
+        _mux3OrderBook.functionCall(
+            abi.encodePacked(IMux3OrderBook.placePositionOrder.selector, positionOrderCallData)
         );
-        proxy.functionCallWithValue(params.proxyCallData, params.value);
     }
 
-    function _preprocessOrder(
-        uint256 projectId,
-        address collateralToken,
-        address assetToken,
-        bool isLong,
-        bytes32 referralCode
-    ) internal returns (address proxy) {
-        bytes32 proxyId = _makeProxyId(projectId, msg.sender, collateralToken, assetToken, isLong);
-        proxy = _tradingProxies[proxyId];
-        if (proxy == address(0)) {
-            proxy = createProxy(projectId, collateralToken, assetToken, isLong);
+    function proxyFunctionCall(ProxyCallParams calldata params) external payable {
+        proxyFunctionCall2(msg.sender, params);
+    }
+
+    function proxyFunctionCall2(address account, ProxyCallParams calldata params) public payable {
+        _verifyCaller(account);
+        address proxy = _mustGetProxy(
+            params.projectId,
+            account,
+            params.collateralToken,
+            params.assetToken,
+            params.isLong
+        );
+        if (params.referralCode != bytes32(0) && _referralManager != address(0)) {
+            IReferralManager(_referralManager).setReferrerCodeFor(proxy, params.referralCode);
         }
-        if (referralCode != bytes32(0) && _referralManager != address(0)) {
-            IReferralManager(_referralManager).setReferrerCodeFor(proxy, referralCode);
-        }
+        proxy.functionCallWithValue(params.proxyCallData, params.value);
     }
 
     // =========================================================================
@@ -328,9 +289,21 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         address token,
         uint256 amount
     ) external payable {
-        address proxy = getProxyAddress(projectId, msg.sender, collateralToken, assetToken, isLong);
-        require(proxy != address(0), "InvalidToAddress");
-        IERC20Upgradeable(token).safeTransferFrom(msg.sender, proxy, amount);
+        transferToken2(projectId, msg.sender, collateralToken, assetToken, isLong, token, amount);
+    }
+
+    function transferToken2(
+        uint256 projectId,
+        address account,
+        address collateralToken,
+        address assetToken,
+        bool isLong,
+        address token,
+        uint256 amount
+    ) public payable {
+        _verifyCaller(account);
+        address proxy = _mustGetProxy(projectId, account, collateralToken, assetToken, isLong);
+        IERC20Upgradeable(token).safeTransferFrom(account, proxy, amount);
     }
 
     function wrapAndTransferNative(
@@ -340,57 +313,40 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         bool isLong,
         uint256 amount
     ) external payable {
-        address proxy = getProxyAddress(projectId, msg.sender, collateralToken, assetToken, isLong);
-        require(proxy != address(0), "InvalidToAddress");
+        wrapAndTransferNative2(projectId, msg.sender, collateralToken, assetToken, isLong, amount);
+    }
+
+    function wrapAndTransferNative2(
+        uint256 projectId,
+        address account,
+        address collateralToken,
+        address assetToken,
+        bool isLong,
+        uint256 amount
+    ) public payable {
+        _verifyCaller(account);
         require(msg.value >= amount, "InsufficientValue");
+        address proxy = _mustGetProxy(projectId, account, collateralToken, assetToken, isLong);
         IWETH(_weth).deposit{ value: amount }();
         IERC20Upgradeable(_weth).safeTransfer(proxy, amount);
     }
 
-    // ======================== method called by keeper ========================
-    function cancelTimeoutOrders(
-        uint256 projectId,
-        address account,
-        address collateralToken,
-        address assetToken,
-        bool isLong,
-        bytes32[] calldata keys
-    ) external {
-        IAggregator(_mustGetProxy(projectId, account, collateralToken, assetToken, isLong)).cancelTimeoutOrders(keys);
+    function _verifyCaller(address account) internal view {
+        address caller = msg.sender;
+        require(caller == account || _delegators[caller], "AccountNotMatch");
     }
 
-    function liquidatePosition(
-        uint256 projectId,
-        address account,
-        address collateralToken,
-        address assetToken,
-        bool isLong,
-        uint256 liquidatePrice
-    ) external payable {
-        require(isKeeper(msg.sender), "OnlyKeeper");
-        IAggregator(_mustGetProxy(projectId, account, collateralToken, assetToken, isLong)).liquidatePosition{
-            value: msg.value
-        }(liquidatePrice);
-    }
-
-    function withdraw(
+    function _createProxy(
         uint256 projectId,
         address account,
         address collateralToken,
         address assetToken,
         bool isLong
-    ) external {
-        IAggregator(_mustGetProxy(projectId, account, collateralToken, assetToken, isLong)).withdraw();
-    }
-
-    function getProxyAddress(
-        uint256 projectId,
-        address account,
-        address collateralToken,
-        address assetToken,
-        bool isLong
-    ) public view returns (address) {
-        return _getBeaconProxyAddress(projectId, _liquidityPool, account, collateralToken, assetToken, isLong);
+    ) internal returns (address) {
+        uint8 collateralId = getAssetId(projectId, collateralToken);
+        _verifyAssetId(collateralToken, collateralId);
+        return
+            _createBeaconProxy(projectId, _liquidityPool, account, assetToken, collateralToken, collateralId, isLong);
     }
 
     function _mustGetProxy(
@@ -399,10 +355,12 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         address collateralToken,
         address assetToken,
         bool isLong
-    ) internal view returns (address proxy) {
+    ) internal returns (address proxy) {
         bytes32 proxyId = _makeProxyId(projectId, account, collateralToken, assetToken, isLong);
         proxy = _tradingProxies[proxyId];
-        require(proxy != address(0), "ProxyNotExist");
+        if (proxy == address(0)) {
+            proxy = _createProxy(projectId, account, collateralToken, assetToken, isLong);
+        }
     }
 
     function _verifyAssetId(address assetToken, uint8 assetId) internal view {
@@ -422,5 +380,22 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
 
     function _getSubAccountOwner(bytes32 subAccountId) internal pure returns (address account) {
         account = address(uint160(uint256(subAccountId) >> 96));
+    }
+
+    function _decodeBytes32(bytes memory callData, uint256 index) internal pure returns (bytes32 data) {
+        require(callData.length >= 32 * (index + 1), "BadCallData");
+        uint256 offset = 0x20 + index * 32;
+        assembly {
+            data := mload(add(callData, offset))
+        }
+    }
+
+    function _decodeFunctionSig(bytes memory muxCallData) internal pure returns (bytes4 sig) {
+        require(muxCallData.length >= 0x20, "BadMuxCallData");
+        bytes32 data;
+        assembly {
+            data := mload(add(muxCallData, 0x20))
+        }
+        sig = bytes4(data);
     }
 }
