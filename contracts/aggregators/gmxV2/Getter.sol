@@ -43,7 +43,11 @@ abstract contract Getter is Storage {
 
     // 1e18
     function getMarginRate(Prices memory prices) external view returns (uint256) {
-        return _store.getMarginRate(prices); // 1e18
+        uint256 sizeInUsd = IReaderLite(_store.projectConfigs.reader).getPositionSizeInUsd(
+            _store.projectConfigs.dataStore,
+            _store.positionKey
+        );
+        return _store.getMarginRate(sizeInUsd, prices); // 1e18
     }
 
     function isLiquidateable(Prices memory prices) external view returns (bool) {
@@ -54,6 +58,6 @@ abstract contract Getter is Storage {
         if (sizeInUsd == 0) {
             return false;
         }
-        return _store.getMarginRate(prices) < uint256(_store.marketConfigs.maintenanceMarginRate) * 1e13;
+        return _store.getMarginRate(sizeInUsd, prices) < uint256(_store.marketConfigs.maintenanceMarginRate) * 1e13;
     }
 }

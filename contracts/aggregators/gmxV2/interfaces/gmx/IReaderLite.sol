@@ -22,4 +22,9 @@ interface IReaderLite {
         external
         view
         returns (uint256 collateralAmount, uint256 sizeInUsd, uint256 totalCostAmount, int256 pnlAfterPriceImpactUsd);
+
+    function getMaxPositionFeeUsd(
+        address dataStore,
+        uint256 sizeDeltaUsd
+    ) external view returns (uint256 positionFeeUsd);
 }

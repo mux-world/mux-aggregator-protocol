@@ -20,6 +20,7 @@ enum TokenConfigIds {
     LIQUIDATION_FEE_RATE, // an extra fee rate for liquidation
     REFERRENCE_ORACLE,
     REFERRENCE_ORACLE_DEVIATION,
+    MAX_BORROWING_RATE,
     END
 }
 
@@ -38,12 +39,13 @@ struct ProjectConfigs {
 
 struct TokenConfigs {
     address referrenceOracle;
-    // --------------------------
     uint32 referenceDeviation;
     uint32 boostFeeRate;
     uint32 initialMarginRate;
+    // --------------------------
     uint32 maintenanceMarginRate;
     uint32 liquidationFeeRate; // an extra fee rate for liquidation
+    uint32 maxBorrowingRate;
     // --------------------------
     bytes32[20] reserved;
 }

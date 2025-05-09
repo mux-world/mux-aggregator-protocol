@@ -192,6 +192,16 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
         } else {
             context.amountOut = swapInAmount;
         }
+        if (borrow > 0) {
+            uint256 tokenPrice = LibGmx.getOraclePrice(_projectConfigs, _account.collateralToken, true); // 1e30
+            // uint256 minCollateralAmount = (((sizeUsd * _assetConfigs.initialMarginRate) / 1e5) * 1e30) / tokenPrice; // 1e18
+            // minCollateralAmount = minCollateralAmount / (10 ** (18 - _account.collateralDecimals)); // collateral.decimals
+            // require(context.amountOut >= minCollateralAmount, "CollateralNotEnough");
+
+            uint256 maxBorrowingAmount = (((sizeUsd * _assetConfigs.maxBorrowingRate) / 1e5) * 1e30) / tokenPrice; // 1e18
+            maxBorrowingAmount = maxBorrowingAmount / (10 ** (18 - _account.collateralDecimals)); // collateral.decimals
+            require(borrow <= maxBorrowingAmount, "BorrowExceedLimit");
+        }
         uint256 borrowed;
         (borrowed, context.fee) = _borrowCollateral(borrow);
         context.amountIn = context.amountOut + borrowed;

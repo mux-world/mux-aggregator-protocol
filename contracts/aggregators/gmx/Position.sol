@@ -109,12 +109,12 @@ contract Position is Storage, Debt {
 
     function _isMarginSafe(
         IGmxVault.Position memory position,
-        uint256 deltaCollateralUsd, // without delta debt
+        uint256 deltaCollateral, // without delta debt
         uint256 deltaSizeUsd,
         uint256 priceUsd,
         uint32 threshold
     ) internal view returns (bool) {
-        (uint256 accountValue, bool isNegative) = _getMarginValue(position, deltaCollateralUsd, priceUsd); // 1e30
+        (uint256 accountValue, bool isNegative) = _getMarginValue(position, deltaCollateral, priceUsd); // 1e30
         if (isNegative) {
             return false;
         }

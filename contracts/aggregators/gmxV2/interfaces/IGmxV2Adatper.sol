@@ -39,6 +39,7 @@ interface IGmxV2Adatper {
         EMERGENCY_SWAP_SLIPPAGE,
         INDEX_DECIMALS,
         IS_BOOSTABLE,
+        MAX_BORROWING_RATE,
         END
     }
 
@@ -106,7 +107,7 @@ interface IGmxV2Adatper {
         uint32 initialMarginRate;
         uint32 maintenanceMarginRate;
         uint32 liquidationFeeRate; // an extra fee rate for liquidation
-        uint32 deleted0;
+        uint32 maxBorrowingRate;
         uint8 indexDecimals;
         bool isBoostable;
         bytes32[10] reserved;
@@ -188,14 +189,6 @@ interface IGmxV2Adatper {
     function getPendingOrders() external view returns (PendingOrder[] memory pendingOrders);
 
     function placeOrder(OrderCreateParams memory createParams) external payable returns (bytes32);
-
-    function updateOrder(
-        bytes32 key,
-        uint256 sizeDeltaUsd,
-        uint256 acceptablePrice,
-        uint256 triggerPrice,
-        bool autoCancel
-    ) external;
 
     function cancelOrder(bytes32 key) external;
 }

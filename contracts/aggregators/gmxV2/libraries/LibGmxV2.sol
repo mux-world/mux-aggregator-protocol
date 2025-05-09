@@ -35,6 +35,18 @@ library LibGmxV2 {
 
     // ===================================== READ =============================================
 
+    function maintenanceMarginRate(IGmxV2Adatper.GmxAdapterStoreV2 storage store) internal view returns (uint256) {
+        return uint256(store.marketConfigs.maintenanceMarginRate) * 1e13;
+    }
+
+    function initialMarginRate(IGmxV2Adatper.GmxAdapterStoreV2 storage store) internal view returns (uint256) {
+        return uint256(store.marketConfigs.initialMarginRate) * 1e13;
+    }
+
+    function maxBorrowingRate(IGmxV2Adatper.GmxAdapterStoreV2 storage store) internal view returns (uint256) {
+        return uint256(store.marketConfigs.maxBorrowingRate) * 1e13;
+    }
+
     function getMarginValueUsd(
         IGmxV2Adatper.GmxAdapterStoreV2 storage store,
         uint256 collateralAmount,
@@ -79,12 +91,13 @@ library LibGmxV2 {
     // 1e18
     function getMarginRate(
         IGmxV2Adatper.GmxAdapterStoreV2 storage store,
+        uint256 sizeInUsd,
         IGmxV2Adatper.Prices memory prices
     ) public view returns (uint256) {
-        uint256 sizeInUsd = IReaderLite(store.projectConfigs.reader).getPositionSizeInUsd(
-            store.projectConfigs.dataStore,
-            store.positionKey
-        );
+        // uint256 sizeInUsd = IReaderLite(store.projectConfigs.reader).getPositionSizeInUsd(
+        //     store.projectConfigs.dataStore,
+        //     store.positionKey
+        // );
         if (sizeInUsd == 0) {
             return 0;
         }
@@ -107,87 +120,45 @@ library LibGmxV2 {
         return ((marginValueUsd) * 1e18) / (info.sizeInUsd);
     }
 
-    function isMarginSafe(
+    function validateOpenPositionSafety(
         IGmxV2Adatper.GmxAdapterStoreV2 storage store,
         IGmxV2Adatper.Prices memory prices,
         uint256 deltaCollateralAmount, // without delta debt
         uint256 deltaSizeUsd,
-        uint256 marginRateThreshold // 1e18
-    ) public view returns (bool) {
-        if (!store.marketConfigs.isBoostable) {
-            return true;
-        }
+        uint256 borrowCollateralAmount
+    ) public view {
+        require(borrowCollateralAmount == 0 || deltaSizeUsd > 0, "InvalidSizeDelta");
         uint256 sizeInUsd = IReaderLite(store.projectConfigs.reader).getPositionSizeInUsd(
             store.projectConfigs.dataStore,
             store.positionKey
         );
-        if (sizeInUsd > 0) {
-            GmxPositionInfo memory info;
-            (info.collateralAmount, info.sizeInUsd, info.totalCostAmount, info.pnlAfterPriceImpactUsd) = IReaderLite(
-                store.projectConfigs.reader
-            ).getPositionMarginInfo(
-                    store.projectConfigs.dataStore,
-                    store.projectConfigs.referralStore,
-                    store.positionKey,
-                    makeGmxPrices(store, prices)
-                );
-            uint256 marginUsd = getMarginValueUsd(
-                store,
-                info.collateralAmount,
-                info.totalCostAmount,
-                info.pnlAfterPriceImpactUsd,
-                prices.collateralPrice
-            ); // 1e30
-            if (marginUsd == 0) {
-                // already bankrupt
-                return false;
-            }
-            uint256 collateralUsd = ((deltaCollateralAmount * prices.collateralPrice) / 1e18).toDecimals(
-                store.collateralTokenDecimals,
-                30
-            );
-            uint256 nextMarginRate = ((marginUsd + collateralUsd) * 1e30) / (sizeInUsd + deltaSizeUsd) / 1e12; // 1e18
-            if (nextMarginRate < marginRateThreshold) {
-                return false;
-            }
-        } else {
-            if (deltaSizeUsd == 0) {
-                return true;
-            }
-            uint256 collateralUsd = ((deltaCollateralAmount * prices.collateralPrice) / 1e18).toDecimals(
-                store.collateralTokenDecimals,
-                30
-            );
-            uint256 nextMarginRate = ((collateralUsd) * 1e30) / (deltaSizeUsd) / 1e12; // 1e18
-            if (nextMarginRate < marginRateThreshold) {
-                return false;
-            }
-        }
+        require(
+            sizeInUsd == 0 || getMarginRate(store, sizeInUsd, prices) >= maintenanceMarginRate(store),
+            "MarginUnsafe"
+        );
+        // new position
+        uint256 minCollateralAmount = (((deltaSizeUsd * initialMarginRate(store)) / prices.collateralPrice)).toDecimals(
+            30,
+            store.collateralTokenDecimals
+        );
+        uint256 maxPositionFeeUsd = IReaderLite(store.projectConfigs.reader).getMaxPositionFeeUsd(
+            store.projectConfigs.dataStore,
+            deltaSizeUsd
+        );
+        uint256 maxPositionFee = ((maxPositionFeeUsd * 1e18) / prices.collateralPrice).toDecimals(
+            30,
+            store.collateralTokenDecimals
+        );
+        require(deltaCollateralAmount >= minCollateralAmount, "FeeExceedCollateral");
+        uint256 collateralAmount = deltaCollateralAmount - maxPositionFee;
+        require(collateralAmount >= minCollateralAmount, "InsufficientCollateral");
 
-        return true;
-    }
-
-    function isOpenSafe(
-        IGmxV2Adatper.GmxAdapterStoreV2 storage store,
-        IGmxV2Adatper.Prices memory prices,
-        uint256 deltaCollateralAmount, // without delta debt
-        uint256 deltaSizeUsd
-    ) public view returns (bool) {
-        return
-            isMarginSafe(
-                store,
-                prices,
-                deltaCollateralAmount,
-                deltaSizeUsd,
-                uint256(store.marketConfigs.initialMarginRate) * 1e13
-            );
-    }
-
-    function isCloseSafe(
-        IGmxV2Adatper.GmxAdapterStoreV2 storage store,
-        IGmxV2Adatper.Prices memory prices
-    ) public view returns (bool) {
-        return isMarginSafe(store, prices, 0, 0, uint256(store.marketConfigs.maintenanceMarginRate) * 1e13);
+        // borrow collateral amount vs maintenance margin rate
+        uint256 maxBorrowingCollateral = ((deltaSizeUsd * maxBorrowingRate(store)) / prices.collateralPrice).toDecimals(
+            30,
+            store.collateralTokenDecimals
+        );
+        require(borrowCollateralAmount <= maxBorrowingCollateral, "BorrowExceedLimit");
     }
 
     // ===================================== WRITE =============================================
@@ -213,19 +184,23 @@ library LibGmxV2 {
         }
         if (store.marketConfigs.isBoostable) {
             result.prices = store.getOraclePrices(); // check account safe
-            require(
-                isOpenSafe(store, result.prices, result.collateralAmount, createParams.sizeDeltaUsd),
-                "UnsafeToOpen"
-            );
-        }
-        // borrow
-        if (createParams.borrowCollateralAmount > 0) {
-            require(store.marketConfigs.isBoostable, "NotBoostable");
-            result.borrowedCollateralAmount = borrowCollateral(
+            validateOpenPositionSafety(
                 store,
                 result.prices,
+                result.collateralAmount,
+                createParams.sizeDeltaUsd,
                 createParams.borrowCollateralAmount
             );
+
+            if (createParams.borrowCollateralAmount > 0) {
+                result.borrowedCollateralAmount = borrowCollateral(
+                    store,
+                    result.prices,
+                    createParams.borrowCollateralAmount
+                );
+            }
+        } else {
+            require(createParams.borrowCollateralAmount == 0, "InvalidBorrowAmount");
         }
         // place order
         uint256 totalCollateralAmount = result.collateralAmount + result.borrowedCollateralAmount;
@@ -256,7 +231,11 @@ library LibGmxV2 {
         IGmxV2Adatper.PositionResult memory result;
         if (store.marketConfigs.isBoostable) {
             result.prices = store.getOraclePrices();
-            require(isCloseSafe(store, result.prices), "MarginUnsafe");
+            uint256 sizeInUsd = IReaderLite(store.projectConfigs.reader).getPositionSizeInUsd(
+                store.projectConfigs.dataStore,
+                store.positionKey
+            );
+            require(getMarginRate(store, sizeInUsd, result.prices) >= maintenanceMarginRate(store), "MarginUnsafe");
         }
         result.collateralAmount = createParams.initialCollateralAmount;
         // place order
@@ -297,7 +276,7 @@ library LibGmxV2 {
         );
         require(sizeInUsd > 0, "NoPositionToLiquidate");
         // if position is safe, no need to liquidate
-        require(!isCloseSafe(store, result.prices), "MarginSafe");
+        require(getMarginRate(store, sizeInUsd, result.prices) >= maintenanceMarginRate(store), "MarginUnsafe");
         // place market liquidate order
         result.orderKey = placeOrder(
             store,

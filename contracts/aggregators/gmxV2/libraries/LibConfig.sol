@@ -62,5 +62,7 @@ library LibConfig {
             .toU32();
         store.marketConfigs.indexDecimals = values[uint256(IGmxV2Adatper.MarketConfigIds.INDEX_DECIMALS)].toU8();
         store.marketConfigs.isBoostable = values[uint256(IGmxV2Adatper.MarketConfigIds.IS_BOOSTABLE)] > 0;
+        store.marketConfigs.maxBorrowingRate = values[uint256(IGmxV2Adatper.MarketConfigIds.MAX_BORROWING_RATE)]
+            .toU32();
     }
 }

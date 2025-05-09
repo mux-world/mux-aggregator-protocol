@@ -12,7 +12,7 @@ import "../interfaces/IProxyFactory.sol";
 import "../interfaces/IAggregator.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IReferralManager.sol";
-import "../interfaces/IMux3OrderBook.sol";
+import { IMux3OrderBook, OrderData as Mux3OrderData } from "../interfaces/IMux3OrderBook.sol";
 import "../interfaces/IMuxOrderBook.sol";
 
 import "./Storage.sol";
@@ -196,6 +196,14 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         _muxOrderBook.functionCallWithValue(muxCallData, value);
     }
 
+    function muxCancelOrder(uint64 orderId) external payable {
+        (bytes32[3] memory order, bool isOrderExist) = IMuxOrderBook(_muxOrderBook).getOrder(orderId);
+        require(isOrderExist, "orderNotExist");
+        address orderOwner = _getSubAccountOwner(order[0]);
+        _verifyCaller(orderOwner);
+        IMuxOrderBook(_muxOrderBook).cancelOrder(orderId);
+    }
+
     /**
      * @notice A trader should set initial leverage at least once before open-position
      * @param collateralToken The token to deposit, 0x0 or 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
@@ -250,6 +258,14 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
         _mux3OrderBook.functionCall(
             abi.encodePacked(IMux3OrderBook.placePositionOrder.selector, positionOrderCallData)
         );
+    }
+
+    function mux3CancelOrder(uint64 orderId) external payable {
+        (Mux3OrderData memory orderData, bool exists) = IMux3OrderBook(_mux3OrderBook).getOrder(orderId);
+        require(exists, "No such orderId");
+        address orderOwner = orderData.account;
+        _verifyCaller(orderOwner);
+        IMux3OrderBook(_mux3OrderBook).cancelOrder(orderId);
     }
 
     function proxyFunctionCall(ProxyCallParams calldata params) external payable {

@@ -154,7 +154,7 @@ library LibDebt {
         result.fundingFeeCollateralAmount = updateMuxFundingFee(store);
         result.collateralBalance = IERC20Upgradeable(store.account.collateralToken).balanceOf(address(this));
         if (sizeInUsd != 0) {
-            if (store.isOpenSafe(result.prices, 0, 0)) {
+            if (store.getMarginRate(sizeInUsd, prices) >= store.initialMarginRate()) {
                 result.refundCollateralAmount = result.collateralBalance;
                 transferTokenToOwner(store, store.account.collateralToken, result.refundCollateralAmount);
             }
