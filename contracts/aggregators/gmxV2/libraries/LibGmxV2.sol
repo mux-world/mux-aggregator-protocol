@@ -276,7 +276,7 @@ library LibGmxV2 {
         );
         require(sizeInUsd > 0, "NoPositionToLiquidate");
         // if position is safe, no need to liquidate
-        require(getMarginRate(store, sizeInUsd, result.prices) >= maintenanceMarginRate(store), "MarginUnsafe");
+        require(getMarginRate(store, sizeInUsd, result.prices) < maintenanceMarginRate(store), "MarginSafe");
         // place market liquidate order
         result.orderKey = placeOrder(
             store,
