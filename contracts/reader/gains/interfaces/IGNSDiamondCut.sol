@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import "./types/IDiamondStorage.sol";
 
 /**
- * @custom:version 8
  * @author Nick Mudge <nick@perfectabstractions.com> (https://twitter.com/mudgen)
  * @author Gains Network
  * @dev Based on EIP-2535: Diamonds (https://eips.ethereum.org/EIPS/eip-2535)

@@ -12,9 +12,11 @@ import "./libraries/ITradingInteractionsUtils.sol";
 import "./libraries/ITradingCallbacksUtils.sol";
 import "./libraries/IBorrowingFeesUtils.sol";
 import "./libraries/IPriceAggregatorUtils.sol";
+import "./libraries/IOtcUtils.sol";
+import "./IMulticall.sol";
+import "./libraries/IChainConfigUtils.sol";
 
 /**
- * @custom:version 8
  * @dev Expanded version of multi-collat diamond that includes events and function signatures
  * Technically this interface is virtual since the diamond doesn't directly implement these functions.
  * It only forwards the calls to the facet contracts using delegatecall.
@@ -30,7 +32,10 @@ interface IGNSMultiCollatDiamond is
     ITradingInteractionsUtils,
     ITradingCallbacksUtils,
     IBorrowingFeesUtils,
-    IPriceAggregatorUtils
+    IPriceAggregatorUtils,
+    IOtcUtils,
+    IMulticall,
+    IChainConfigUtils
 {
 
 }

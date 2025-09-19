@@ -84,8 +84,8 @@
   "GainsReader": {
     "type": "plain",
     "name": "GainsReader",
-    "address": "0x1305076D546b14Be8d8561d528A09341dA1b42a0",
-    "deployedAt": 307961744
+    "address": "0x05ac59E62d3f20A2AC4675DEd21AB8390C662eeA",
+    "deployedAt": 343747181
   },
   "GmxV2Adapter": {
     "type": "plain",
@@ -120,7 +120,7 @@
   "Reader": {
     "type": "plain",
     "name": "Reader",
-    "address": "0xB3dF04aabc5CB86Fa73cF9eDdA53939A40937E9d",
-    "deployedAt": 278444534
+    "address": "0xE56a0a38c6085c748638948e2c224F98c1E2b29C",
+    "deployedAt": 380279447
   }
 }

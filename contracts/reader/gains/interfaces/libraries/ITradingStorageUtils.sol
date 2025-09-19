@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import "../types/ITradingStorage.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSTradingStorage facet (inherits types and also contains functions, events, and custom errors)
  */
 interface ITradingStorageUtils is ITradingStorage {
@@ -12,6 +11,8 @@ interface ITradingStorageUtils is ITradingStorage {
      * @dev Initializes the trading storage facet
      * @param _gns address of the gns token
      * @param _gnsStaking address of the gns staking contract
+     * @param _collaterals collateral addresses to add
+     * @param _gTokens corresponding gToken vault addresses
      */
     function initializeTradingStorage(
         address _gns,
@@ -27,7 +28,8 @@ interface ITradingStorageUtils is ITradingStorage {
     function updateTradingActivated(TradingActivated _activated) external;
 
     /**
-     * @dev Adds a new supported collateral
+     * @dev Lists a new supported collateral (disabled by default).
+     * @dev Important: updateCollateralGnsLiquidityPool, updateCollateralUsdPriceFeed, and toggleCollateralActiveState must be called after this function.
      * @param _collateral the address of the collateral
      * @param _gToken the gToken contract of the collateral
      */
@@ -54,11 +56,36 @@ interface ITradingStorageUtils is ITradingStorage {
     function storeTrade(Trade memory _trade, TradeInfo memory _tradeInfo) external returns (Trade memory);
 
     /**
+     * @dev Updates an existing trade max closing slippage %
+     * @param _tradeId id of the trade
+     * @param _maxSlippageP new max slippage % (1e3 precision)
+     */
+    function updateTradeMaxClosingSlippageP(ITradingStorage.Id memory _tradeId, uint16 _maxSlippageP) external;
+
+    /**
      * @dev Updates an open trade collateral
      * @param _tradeId id of updated trade
      * @param _collateralAmount new collateral amount value (collateral precision)
      */
     function updateTradeCollateralAmount(Id memory _tradeId, uint120 _collateralAmount) external;
+
+    /**
+     * @dev Updates an open trade collateral
+     * @param _tradeId id of updated trade
+     * @param _collateralAmount new collateral amount value (collateral precision)
+     * @param _leverage new leverage value
+     * @param _openPrice new open price value
+     * @param _isPartialIncrease refreshes trade liquidation params if true
+     * @param _isPnlPositive whether the pnl is positive (only relevant when closing)
+     */
+    function updateTradePosition(
+        Id memory _tradeId,
+        uint120 _collateralAmount,
+        uint24 _leverage,
+        uint64 _openPrice,
+        bool _isPartialIncrease,
+        bool _isPnlPositive
+    ) external;
 
     /**
      * @dev Updates an open order details (limit/stop)
@@ -93,8 +120,9 @@ interface ITradingStorageUtils is ITradingStorage {
     /**
      * @dev Marks an open trade/limit/stop as closed
      * @param _tradeId the trade id
+     * @param _isPnlPositive whether the pnl is positive
      */
-    function closeTrade(Id memory _tradeId) external;
+    function closeTrade(Id memory _tradeId, bool _isPnlPositive) external;
 
     /**
      * @dev Stores a new pending order
@@ -127,6 +155,12 @@ interface ITradingStorageUtils is ITradingStorage {
     function isCollateralListed(uint8 _index) external view returns (bool);
 
     /**
+     * @dev Returns whether a collateral is the GNS token
+     * @param _index the index of the collateral to check
+     */
+    function isCollateralGns(uint8 _index) external view returns (bool);
+
+    /**
      * @dev Returns the number of supported collaterals
      */
     function getCollateralsCount() external view returns (uint8);
@@ -143,6 +177,11 @@ interface ITradingStorageUtils is ITradingStorage {
     function getCollateralIndex(address _collateral) external view returns (uint8);
 
     /**
+     * @dev Returns the collateral index of the GNS token. If 0, GNS is not a collateral.
+     */
+    function getGnsCollateralIndex() external view returns (uint8);
+
+    /**
      * @dev Returns the trading activated state
      */
     function getTradingActivated() external view returns (TradingActivated);
@@ -152,6 +191,11 @@ interface ITradingStorageUtils is ITradingStorage {
      * @param _trader trader to check
      */
     function getTraderStored(address _trader) external view returns (bool);
+
+    /**
+     * @dev Returns the length of the traders array
+     */
+    function getTradersCount() external view returns (uint256);
 
     /**
      * @dev Returns all traders that have open trades using a pagination system
@@ -175,6 +219,19 @@ interface ITradingStorageUtils is ITradingStorage {
 
     /**
      * @dev Returns all trade/limit/stop orders using a pagination system
+     * @param _traders list of traders to return trades for
+     * @param _offset index of first trade to return
+     * @param _limit index of last trade to return
+     */
+    function getAllTradesForTraders(
+        address[] memory _traders,
+        uint256 _offset,
+        uint256 _limit
+    ) external view returns (Trade[] memory);
+
+    /**
+     * @dev Returns all trade/limit/stop orders using a pagination system.
+     * @dev Calls `getAllTradesForTraders` internally with all traders.
      * @param _offset index of first trade to return
      * @param _limit index of last trade to return
      */
@@ -195,6 +252,19 @@ interface ITradingStorageUtils is ITradingStorage {
 
     /**
      * @dev Returns all trade infos of open trade/limit/stop orders using a pagination system
+     * @param _traders list of traders to return tradeInfo for
+     * @param _offset index of first tradeInfo to return
+     * @param _limit index of last tradeInfo to return
+     */
+    function getAllTradeInfosForTraders(
+        address[] memory _traders,
+        uint256 _offset,
+        uint256 _limit
+    ) external view returns (TradeInfo[] memory);
+
+    /**
+     * @dev Returns all trade infos of open trade/limit/stop orders using a pagination system.
+     * @dev Calls `getAllTradeInfosForTraders` internally with all traders.
      * @param _offset index of first tradeInfo to return
      * @param _limit index of last tradeInfo to return
      */
@@ -214,6 +284,19 @@ interface ITradingStorageUtils is ITradingStorage {
 
     /**
      * @dev Returns all pending orders using a pagination system
+     * @param _traders list of traders to return pendingOrder for
+     * @param _offset index of first pendingOrder to return
+     * @param _limit index of last pendingOrder to return
+     */
+    function getAllPendingOrdersForTraders(
+        address[] memory _traders,
+        uint256 _offset,
+        uint256 _limit
+    ) external view returns (PendingOrder[] memory);
+
+    /**
+     * @dev Returns all pending orders using a pagination system
+     * @dev Calls `getAllPendingOrdersForTraders` internally with all traders.
      * @param _offset index of first pendingOrder to return
      * @param _limit index of last pendingOrder to return
      */
@@ -234,10 +317,14 @@ interface ITradingStorageUtils is ITradingStorage {
     function getCounters(address _trader, CounterType _type) external view returns (Counter memory);
 
     /**
-     * @dev Pure function that returns the pending order type (market open/limit open/stop open) for a trade type (trade/limit/stop)
-     * @param _tradeType the trade type
+     * @dev Returns the counters for a list of traders
+     * @param _traders the list of traders
+     * @param _type the counter type (trade/pending order)
      */
-    function getPendingOpenOrderType(TradeType _tradeType) external pure returns (PendingOrderType);
+    function getCountersForTraders(
+        address[] calldata _traders,
+        CounterType _type
+    ) external view returns (Counter[] memory);
 
     /**
      * @dev Returns the address of the gToken for a collateral stack
@@ -246,18 +333,50 @@ interface ITradingStorageUtils is ITradingStorage {
     function getGToken(uint8 _collateralIndex) external view returns (address);
 
     /**
-     * @dev Returns the current percent profit of a trade (1e10 precision)
-     * @param _openPrice trade open price (1e10 precision)
-     * @param _currentPrice trade current price (1e10 precision)
-     * @param _long true for long, false for short
-     * @param _leverage trade leverage (1e3 precision)
+     * @dev Returns the liquidation params for a trade
+     * @param _trader address of the trader
+     * @param _index index of the trade for trader
      */
-    function getPnlPercent(
-        uint64 _openPrice,
-        uint64 _currentPrice,
-        bool _long,
-        uint24 _leverage
-    ) external pure returns (int256);
+    function getTradeLiquidationParams(
+        address _trader,
+        uint32 _index
+    ) external view returns (IPairsStorage.GroupLiquidationParams memory);
+
+    /**
+     * @dev Returns all trade liquidation params of open trade/limit/stop orders for a trader
+     * @param _trader address of the trader
+     */
+    function getTradesLiquidationParams(
+        address _trader
+    ) external view returns (IPairsStorage.GroupLiquidationParams[] memory);
+
+    /**
+     * @dev Returns all trade liquidation params of open trade/limit/stop orders using a pagination system
+     * @param _traders list of traders to return liq params for
+     * @param _offset index of first liq param to return
+     * @param _limit index of last liq param to return
+     */
+    function getAllTradesLiquidationParamsForTraders(
+        address[] memory _traders,
+        uint256 _offset,
+        uint256 _limit
+    ) external view returns (IPairsStorage.GroupLiquidationParams[] memory);
+
+    /**
+     * @dev Returns all trade liquidation params of open trade/limit/stop orders using a pagination system
+     * @dev Calls `getAllTradesLiquidationParamsForTraders` internally with all traders.
+     * @param _offset index of first liq param to return
+     * @param _limit index of last liq param to return
+     */
+    function getAllTradesLiquidationParams(
+        uint256 _offset,
+        uint256 _limit
+    ) external view returns (IPairsStorage.GroupLiquidationParams[] memory);
+
+    /**
+     * @dev Returns the current contracts version
+     */
+    function getCurrentContractsVersion() external pure returns (ITradingStorage.ContractsVersion);
 
     /**
      * @dev Emitted when the trading activated state is updated
@@ -296,47 +415,101 @@ interface ITradingStorageUtils is ITradingStorage {
 
     /**
      * @dev Emitted when a new trade is stored
+     * @param user trade user
+     * @param index trade index
      * @param trade the trade stored
      * @param tradeInfo the trade info stored
+     * @param liquidationParams the trade liquidation params stored
      */
-    event TradeStored(Trade trade, TradeInfo tradeInfo);
+    event TradeStored(
+        address indexed user,
+        uint32 indexed index,
+        Trade trade,
+        TradeInfo tradeInfo,
+        IPairsStorage.GroupLiquidationParams liquidationParams
+    );
+
+    /**
+     * @dev Emitted when the max closing slippage % of an open trade is updated
+     * @param user trade user
+     * @param index trade index
+     * @param maxClosingSlippageP new max closing slippage % value (1e3 precision)
+     */
+    event TradeMaxClosingSlippagePUpdated(address indexed user, uint32 indexed index, uint16 maxClosingSlippageP);
 
     /**
      * @dev Emitted when an open trade collateral is updated
-     * @param tradeId id of the updated trade
+     * @param user trade user
+     * @param index trade index
      * @param collateralAmount new collateral value (collateral precision)
      */
-    event TradeCollateralUpdated(Id tradeId, uint120 collateralAmount);
+    event TradeCollateralUpdated(address indexed user, uint32 indexed index, uint120 collateralAmount);
+
+    /**
+     * @dev Emitted when an open trade collateral is updated
+     * @param user trade user
+     * @param index trade index
+     * @param collateralAmount new collateral value (collateral precision)
+     * @param leverage new leverage value if present
+     * @param openPrice new open price value if present
+     * @param newTp new tp price (1e10)
+     * @param newSl new sl price (1e10)
+     * @param isPartialIncrease true if trade liquidation params were refreshed
+     * @param isPnlPositive true if trade pnl is positive (only relevant when closing)
+     */
+    event TradePositionUpdated(
+        address indexed user,
+        uint32 indexed index,
+        uint120 collateralAmount,
+        uint24 leverage,
+        uint64 openPrice,
+        uint64 newTp,
+        uint64 newSl,
+        bool isPartialIncrease,
+        bool isPnlPositive
+    );
 
     /**
      * @dev Emitted when an existing trade/limit order/stop order is updated
-     * @param tradeId id of the updated trade
+     * @param user trade user
+     * @param index trade index
      * @param openPrice new open price value (1e10)
      * @param tp new take profit value (1e10)
      * @param sl new stop loss value (1e10)
      * @param maxSlippageP new max slippage % value (1e3)
      */
-    event OpenOrderDetailsUpdated(Id tradeId, uint64 openPrice, uint64 tp, uint64 sl, uint16 maxSlippageP);
+    event OpenOrderDetailsUpdated(
+        address indexed user,
+        uint32 indexed index,
+        uint64 openPrice,
+        uint64 tp,
+        uint64 sl,
+        uint16 maxSlippageP
+    );
 
     /**
      * @dev Emitted when the take profit of an open trade is updated
-     * @param tradeId the trade id
+     * @param user trade user
+     * @param index trade index
      * @param newTp the new take profit (1e10 precision)
      */
-    event TradeTpUpdated(Id tradeId, uint64 newTp);
+    event TradeTpUpdated(address indexed user, uint32 indexed index, uint64 newTp);
 
     /**
      * @dev Emitted when the stop loss of an open trade is updated
-     * @param tradeId the trade id
+     * @param user trade user
+     * @param index trade index
      * @param newSl the new sl (1e10 precision)
      */
-    event TradeSlUpdated(Id tradeId, uint64 newSl);
+    event TradeSlUpdated(address indexed user, uint32 indexed index, uint64 newSl);
 
     /**
      * @dev Emitted when an open trade is closed
-     * @param tradeId the trade id
+     * @param user trade user
+     * @param index trade index
+     * @param isPnlPositive true if trade pnl is positive
      */
-    event TradeClosed(Id tradeId);
+    event TradeClosed(address indexed user, uint32 indexed index, bool isPnlPositive);
 
     /**
      * @dev Emitted when a new pending order is stored

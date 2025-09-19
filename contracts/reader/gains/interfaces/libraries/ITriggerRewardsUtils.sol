@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import "../types/ITriggerRewards.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSTriggerRewards facet (inherits types and also contains functions, events, and custom errors)
  */
 interface ITriggerRewardsUtils is ITriggerRewards {

@@ -2,9 +2,9 @@
 pragma solidity 0.8.23;
 
 import "../types/IPriceImpact.sol";
+import "../types/ITradingStorage.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSPriceImpact facet (inherits types and also contains functions, events, and custom errors)
  */
 interface IPriceImpactUtils is IPriceImpact {
@@ -14,6 +14,26 @@ interface IPriceImpactUtils is IPriceImpact {
      * @param _windowsCount windows count
      */
     function initializePriceImpact(uint48 _windowsDuration, uint48 _windowsCount) external;
+
+    /**
+     * @dev Initializes negative pnl cumulative volume multiplier
+     * @param _negPnlCumulVolMultiplier new value (1e10)
+     */
+    function initializeNegPnlCumulVolMultiplier(uint40 _negPnlCumulVolMultiplier) external;
+
+    /**
+     * @dev Initializes pair factors
+     * @param _pairIndices pair indices to initialize
+     * @param _protectionCloseFactors protection close factors (1e10)
+     * @param _protectionCloseFactorBlocks protection close factor blocks
+     * @param _cumulativeFactors cumulative factors (1e10)
+     */
+    function initializePairFactors(
+        uint16[] calldata _pairIndices,
+        uint40[] calldata _protectionCloseFactors,
+        uint32[] calldata _protectionCloseFactorBlocks,
+        uint40[] calldata _cumulativeFactors
+    ) external;
 
     /**
      * @dev Updates price impact windows count
@@ -28,6 +48,33 @@ interface IPriceImpactUtils is IPriceImpact {
     function setPriceImpactWindowsDuration(uint48 _newWindowsDuration) external;
 
     /**
+     * @dev Updates negative pnl cumulative volume multiplier
+     * @param _negPnlCumulVolMultiplier new value (1e10)
+     */
+    function setNegPnlCumulVolMultiplier(uint40 _negPnlCumulVolMultiplier) external;
+
+    /**
+     * @dev Whitelists/unwhitelists traders from protection close factor
+     * @param _traders traders addresses
+     * @param _whitelisted values
+     */
+    function setProtectionCloseFactorWhitelist(address[] calldata _traders, bool[] calldata _whitelisted) external;
+
+    /**
+     * @dev Updates traders price impact settings for pairs
+     * @param _traders traders addresses
+     * @param _pairIndices pair indices
+     * @param _cumulVolPriceImpactMultipliers cumulative volume price impact multipliers (1e3)
+     * @param _fixedSpreadPs fixed spreads (1e3 %)
+     */
+    function setUserPriceImpact(
+        address[] calldata _traders,
+        uint16[] calldata _pairIndices,
+        uint16[] calldata _cumulVolPriceImpactMultipliers,
+        uint16[] calldata _fixedSpreadPs
+    ) external;
+
+    /**
      * @dev Updates pairs 1% depths above and below
      * @param _indices indices of pairs
      * @param _depthsAboveUsd depths above the price in USD
@@ -40,25 +87,63 @@ interface IPriceImpactUtils is IPriceImpact {
     ) external;
 
     /**
-     * @dev Adds open interest to a window
-     * @param _openInterestUsd open interest of trade in USD (1e18 precision)
-     * @param _pairIndex index of pair
-     * @param _long true for long, false for short
+     * @dev Sets protection close factors for pairs
+     * @param _pairIndices pair indices to update
+     * @param _protectionCloseFactors new protection close factors (1e10)
      */
-    function addPriceImpactOpenInterest(uint256 _openInterestUsd, uint256 _pairIndex, bool _long) external;
+    function setProtectionCloseFactors(
+        uint16[] calldata _pairIndices,
+        uint40[] calldata _protectionCloseFactors
+    ) external;
 
     /**
-     * @dev Removes open interest from a window
-     * @param _openInterestUsd open interest of trade in USD (1e18 precision)
-     * @param _pairIndex index of pair
-     * @param _long true for long, false for short
-     * @param _addTs timestamp of when the trade open interest was added (to remove from same window)
+     * @dev Sets protection close factor blocks duration for pairs
+     * @param _pairIndices pair indices to update
+     * @param _protectionCloseFactorBlocks new protection close factor blocks
      */
-    function removePriceImpactOpenInterest(
-        uint256 _openInterestUsd, // 1e18 USD
-        uint256 _pairIndex,
-        bool _long,
-        uint48 _addTs
+    function setProtectionCloseFactorBlocks(
+        uint16[] calldata _pairIndices,
+        uint32[] calldata _protectionCloseFactorBlocks
+    ) external;
+
+    /**
+     * @dev Sets cumulative factors for pairs
+     * @param _pairIndices pair indices to update
+     * @param _cumulativeFactors new cumulative factors (1e10)
+     */
+    function setCumulativeFactors(uint16[] calldata _pairIndices, uint40[] calldata _cumulativeFactors) external;
+
+    /**
+     * @dev Sets whether pairs are exempt from price impact on open
+     * @param _pairIndices pair indices to update
+     * @param _exemptOnOpen new values
+     */
+    function setExemptOnOpen(uint16[] calldata _pairIndices, bool[] calldata _exemptOnOpen) external;
+
+    /**
+     * @dev Sets whether pairs are exempt from price impact on close once protection close factor has expired
+     * @param _pairIndices pair indices to update
+     * @param _exemptAfterProtectionCloseFactor new values
+     */
+    function setExemptAfterProtectionCloseFactor(
+        uint16[] calldata _pairIndices,
+        bool[] calldata _exemptAfterProtectionCloseFactor
+    ) external;
+
+    /**
+     * @dev Adds open interest to current window
+     * @param _trader trader address
+     * @param _index trade index
+     * @param _oiDeltaCollateral open interest to add (collateral precision)
+     * @param _open whether it corresponds to opening or closing a trade
+     * @param _isPnlPositive whether it corresponds to a positive pnl trade (only relevant when _open = false)
+     */
+    function addPriceImpactOpenInterest(
+        address _trader,
+        uint32 _index,
+        uint256 _oiDeltaCollateral,
+        bool _open,
+        bool _isPnlPositive
     ) external;
 
     /**
@@ -70,16 +155,26 @@ interface IPriceImpactUtils is IPriceImpact {
 
     /**
      * @dev Returns price impact % (1e10 precision) and price after impact (1e10 precision) for a trade
-     * @param _openPrice open price (1e10 precision)
+     * @param _trader trader address (to check if whitelisted from protection close factor)
+     * @param _marketPrice market price (1e10 precision)
      * @param _pairIndex index of pair
      * @param _long true for long, false for short
      * @param _tradeOpenInterestUsd open interest of trade in USD (1e18 precision)
+     * @param _isPnlPositive true if positive pnl, false if negative pnl (only relevant when _open = false)
+     * @param _open true on open, false on close
+     * @param _lastPosIncreaseBlock block when trade position size was last increased (only relevant when _open = false)
+     * @param _contractsVersion trade contracts version
      */
     function getTradePriceImpact(
-        uint256 _openPrice,
+        address _trader,
+        uint256 _marketPrice,
         uint256 _pairIndex,
         bool _long,
-        uint256 _tradeOpenInterestUsd
+        uint256 _tradeOpenInterestUsd,
+        bool _isPnlPositive,
+        bool _open,
+        uint256 _lastPosIncreaseBlock,
+        ITradingStorage.ContractsVersion _contractsVersion
     ) external view returns (uint256 priceImpactP, uint256 priceAfterImpact);
 
     /**
@@ -124,6 +219,30 @@ interface IPriceImpactUtils is IPriceImpact {
     function getPairDepths(uint256[] calldata _indices) external view returns (PairDepth[] memory);
 
     /**
+     * @dev Returns factors for a set of pairs (1e10)
+     * @param _indices indices of pairs
+     */
+    function getPairFactors(uint256[] calldata _indices) external view returns (IPriceImpact.PairFactors[] memory);
+
+    /**
+     * @dev Returns negative pnl cumulative volume multiplier
+     */
+    function getNegPnlCumulVolMultiplier() external view returns (uint48);
+
+    /**
+     * @dev Returns whether a trader is whitelisted from protection close factor
+     */
+    function getProtectionCloseFactorWhitelist(address _trader) external view returns (bool);
+
+    /**
+     * @dev Returns a trader's price impact settings on a particular pair
+     */
+    function getUserPriceImpact(
+        address _trader,
+        uint256 _pairIndex
+    ) external view returns (IPriceImpact.UserPriceImpact memory);
+
+    /**
      * @dev Triggered when OiWindowsSettings is initialized (once)
      * @param windowsDuration duration of each window (seconds)
      * @param windowsCount number of windows
@@ -143,17 +262,72 @@ interface IPriceImpactUtils is IPriceImpact {
     event PriceImpactWindowsDurationUpdated(uint48 indexed windowsDuration);
 
     /**
+     * @dev Triggered when negPnlCumulVolMultiplier is updated
+     * @param negPnlCumulVolMultiplier new value (1e10)
+     */
+    event NegPnlCumulVolMultiplierUpdated(uint40 indexed negPnlCumulVolMultiplier);
+
+    /**
+     * @dev Triggered when a trader is whitelisted/unwhitelisted from protection close factor
+     * @param trader trader address
+     * @param whitelisted true if whitelisted, false if unwhitelisted
+     */
+    event ProtectionCloseFactorWhitelistUpdated(address trader, bool whitelisted);
+
+    /**
+     * @dev Triggered when a trader's price impact data is updated
+     * @param trader trader address
+     * @param pairIndex pair index
+     * @param cumulVolPriceImpactMultiplier cumulative volume price impact multiplier (1e3)
+     * @param fixedSpreadP fixed spread (1e3 %)
+     */
+    event UserPriceImpactUpdated(
+        address indexed trader,
+        uint16 indexed pairIndex,
+        uint16 cumulVolPriceImpactMultiplier,
+        uint16 fixedSpreadP
+    );
+
+    /**
+     * @dev Triggered when a pair's protection close factor is updated
+     * @param pairIndex index of the pair
+     * @param protectionCloseFactor new protection close factor (1e10)
+     */
+    event ProtectionCloseFactorUpdated(uint256 indexed pairIndex, uint40 protectionCloseFactor);
+
+    /**
+     * @dev Triggered when a pair's protection close factor duration is updated
+     * @param pairIndex index of the pair
+     * @param protectionCloseFactorBlocks new protection close factor blocks
+     */
+    event ProtectionCloseFactorBlocksUpdated(uint256 indexed pairIndex, uint32 protectionCloseFactorBlocks);
+
+    /**
+     * @dev Triggered when a pair's cumulative factor is updated
+     * @param pairIndex index of the pair
+     * @param cumulativeFactor new cumulative factor (1e10)
+     */
+    event CumulativeFactorUpdated(uint256 indexed pairIndex, uint40 cumulativeFactor);
+
+    /**
+     * @dev Triggered when a pair's exemptOnOpen value is updated
+     * @param pairIndex index of the pair
+     * @param exemptOnOpen whether the pair is exempt of price impact on open
+     */
+    event ExemptOnOpenUpdated(uint256 indexed pairIndex, bool exemptOnOpen);
+
+    /**
+     * @dev Triggered when a pair's exemptAfterProtectionCloseFactor value is updated
+     * @param pairIndex index of the pair
+     * @param exemptAfterProtectionCloseFactor whether the pair is exempt of price impact on close once protection close factor has expired
+     */
+    event ExemptAfterProtectionCloseFactorUpdated(uint256 indexed pairIndex, bool exemptAfterProtectionCloseFactor);
+
+    /**
      * @dev Triggered when OI is added to a window.
      * @param oiWindowUpdate OI window update details (windowsDuration, pairIndex, windowId, etc.)
      */
     event PriceImpactOpenInterestAdded(IPriceImpact.OiWindowUpdate oiWindowUpdate);
-
-    /**
-     * @dev Triggered when OI is (tentatively) removed from a window.
-     * @param oiWindowUpdate OI window update details (windowsDuration, pairIndex, windowId, etc.)
-     * @param notOutdated true if the OI is not outdated
-     */
-    event PriceImpactOpenInterestRemoved(IPriceImpact.OiWindowUpdate oiWindowUpdate, bool notOutdated);
 
     /**
      * @dev Triggered when multiple pairs' OI are transferred to a new window (when updating windows duration).

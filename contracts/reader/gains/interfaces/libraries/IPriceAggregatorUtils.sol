@@ -8,7 +8,6 @@ import "../types/ITradingStorage.sol";
 import "../types/ITradingCallbacks.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSPriceAggregator facet (inherits types and also contains functions, events, and custom errors)
  */
 interface IPriceAggregatorUtils is IPriceAggregator {
@@ -21,7 +20,7 @@ interface IPriceAggregatorUtils is IPriceAggregator {
      * @param _oracles chainlink oracle addresses
      * @param _jobIds chainlink job ids (market/lookback)
      * @param _collateralIndices collateral indices
-     * @param _gnsCollateralUniV3Pools corresponding GNS/collateral Uniswap V3 pools addresses
+     * @param _gnsCollateralLiquidityPools corresponding GNS/collateral liquidity pool values
      * @param _collateralUsdPriceFeeds corresponding collateral/USD chainlink price feeds
      */
     function initializePriceAggregator(
@@ -32,9 +31,22 @@ interface IPriceAggregatorUtils is IPriceAggregator {
         address[] memory _oracles,
         bytes32[2] memory _jobIds,
         uint8[] calldata _collateralIndices,
-        IUniswapV3Pool[] memory _gnsCollateralUniV3Pools,
+        LiquidityPoolInput[] memory _gnsCollateralLiquidityPools,
         IChainlinkFeed[] memory _collateralUsdPriceFeeds
     ) external;
+
+    /**
+     * @dev Initializes lookback job count
+     * @param _limitJobCount lookback job count
+     */
+    function initializeLimitJobCount(uint8 _limitJobCount) external;
+
+    /**
+     * @dev Initializes max deviation percentages
+     * @param _maxMarketDeviationP max market order deviation percentage (1e3, %)
+     * @param _maxLookbackDeviationP max lookback order deviation percentage (1e3, %)
+     */
+    function initializeMaxDeviationsP(uint24 _maxMarketDeviationP, uint24 _maxLookbackDeviationP) external;
 
     /**
      * @dev Updates LINK/USD chainlink price feed
@@ -50,11 +62,14 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     function updateCollateralUsdPriceFeed(uint8 _collateralIndex, IChainlinkFeed _value) external;
 
     /**
-     * @dev Updates collateral/GNS Uniswap V3 pool
+     * @dev Updates collateral/GNS liquidity pool
      * @param _collateralIndex collateral index
-     * @param _uniV3Pool new value
+     * @param _liquidityPoolInput new values
      */
-    function updateCollateralGnsUniV3Pool(uint8 _collateralIndex, IUniswapV3Pool _uniV3Pool) external;
+    function updateCollateralGnsLiquidityPool(
+        uint8 _collateralIndex,
+        LiquidityPoolInput calldata _liquidityPoolInput
+    ) external;
 
     /**
      * @dev Updates TWAP interval
@@ -100,22 +115,38 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     function setLimitJobId(bytes32 _jobId) external;
 
     /**
-     * @dev Requests price from oracles
+     * @dev Updates lookback job count
+     * @param _limitJobCount new value
+     */
+    function setLimitJobCount(uint8 _limitJobCount) external;
+
+    /**
+     * @dev Updates max market order deviation percentage
+     * @param _maxMarketDeviationP new value (1e3, %)
+     */
+    function setMaxMarketDeviationP(uint24 _maxMarketDeviationP) external;
+
+    /**
+     * @dev Updates max lookback order deviation percentage
+     * @param _maxLookbackDeviationP new value (1e3, %)
+     */
+    function setMaxLookbackDeviationP(uint24 _maxLookbackDeviationP) external;
+
+    /**
+     * @dev Stores pending order, requests price from oracles, and returns pending order id
      * @param _collateralIndex collateral index
      * @param _pairIndex pair index
-     * @param _orderId order id
-     * @param _orderType order type
+     * @param _pendingOrder pending order to store
      * @param _positionSizeCollateral position size (collateral precision)
      * @param _fromBlock block number from which to start fetching prices (for lookbacks)
      */
     function getPrice(
         uint8 _collateralIndex,
         uint16 _pairIndex,
-        ITradingStorage.Id memory _orderId,
-        ITradingStorage.PendingOrderType _orderType,
+        ITradingStorage.PendingOrder memory _pendingOrder,
         uint256 _positionSizeCollateral,
         uint256 _fromBlock
-    ) external;
+    ) external returns (ITradingStorage.Id memory);
 
     /**
      * @dev Fulfills price request, called by chainlink oracles
@@ -132,11 +163,13 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     /**
      * @dev Returns LINK fee for price request
      * @param _collateralIndex collateral index
+     * @param _trader trader address
      * @param _pairIndex pair index
      * @param _positionSizeCollateral position size in collateral tokens (collateral precision)
      */
     function getLinkFee(
         uint8 _collateralIndex,
+        address _trader,
         uint16 _pairIndex,
         uint256 _positionSizeCollateral
     ) external view returns (uint256);
@@ -226,10 +259,10 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     function getOracles() external view returns (address[] memory);
 
     /**
-     * @dev Returns collateral/gns uni v3 pool info
+     * @dev Returns collateral/gns liquidity pool info
      * @param _collateralIndex index of collateral
      */
-    function getCollateralGnsUniV3Pool(uint8 _collateralIndex) external view returns (UniV3PoolInfo memory);
+    function getCollateralGnsLiquidityPool(uint8 _collateralIndex) external view returns (LiquidityPoolInfo memory);
 
     /**
      * @dev Returns collateral/usd chainlink price feed
@@ -267,6 +300,26 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     function getPendingRequest(bytes32 _id) external view returns (address);
 
     /**
+     * @dev Returns lookback job count
+     */
+    function getLimitJobCount() external view returns (uint8);
+
+    /**
+     * @dev Returns current lookback job index
+     */
+    function getLimitJobIndex() external view returns (uint88);
+
+    /**
+     * @dev Returns max market order deviation percentage (1e3 %)
+     */
+    function getMaxMarketDeviationP() external view returns (uint24);
+
+    /**
+     * @dev Returns max lookback order deviation percentage (1e3 %)
+     */
+    function getMaxLookbackDeviationP() external view returns (uint24);
+
+    /**
      * @dev Emitted when LINK/USD price feed is updated
      * @param value new value
      */
@@ -284,7 +337,7 @@ interface IPriceAggregatorUtils is IPriceAggregator {
      * @param collateralIndex collateral index
      * @param newValue new value
      */
-    event CollateralGnsUniV3PoolUpdated(uint8 collateralIndex, UniV3PoolInfo newValue);
+    event CollateralGnsLiquidityPoolUpdated(uint8 collateralIndex, LiquidityPoolInfo newValue);
 
     /**
      * @dev Emitted when TWAP interval is updated
@@ -336,25 +389,23 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     /**
      * @dev Emitted when a price is requested to the oracles
      * @param collateralIndex collateral index
-     * @param pendingOrderId pending order id
-     * @param orderType order type (market open/market close/limit open/stop open/etc.)
      * @param pairIndex trading pair index
-     * @param job chainlink job id (market/lookback)
-     * @param nodesCount amount of nodes to fetch prices from
-     * @param linkFeePerNode link fee distributed per node (1e18 precision)
+     * @param pendingOrder corresponding pending order
      * @param fromBlock block number from which to start fetching prices (for lookbacks)
      * @param isLookback true if lookback
+     * @param job chainlink job id (market/lookback)
+     * @param linkFeePerNode link fee distributed per node (1e18 precision)
+     * @param nodesCount amount of nodes to fetch prices from
      */
     event PriceRequested(
-        uint8 collateralIndex,
-        ITradingStorage.Id pendingOrderId,
-        ITradingStorage.PendingOrderType indexed orderType,
+        uint8 indexed collateralIndex,
         uint256 indexed pairIndex,
-        bytes32 indexed job,
-        uint256 nodesCount,
-        uint256 linkFeePerNode,
+        ITradingStorage.PendingOrder pendingOrder,
         uint256 fromBlock,
-        bool isLookback
+        bool isLookback,
+        bytes32 job,
+        uint256 linkFeePerNode,
+        uint256 nodesCount
     );
 
     /**
@@ -371,7 +422,11 @@ interface IPriceAggregatorUtils is IPriceAggregator {
      * @param request chainlink request id
      * @param priceData OrderAnswer compressed into uint256
      * @param isLookback true if lookback
-     * @param usedInMedian false if order already executed because min answers count was already reached
+     * @param usedInMedian false if order already fulfilled
+     * @param minAnswersReached true if min answers count was reached
+     * @param minFilteredAnswersReached true if min answers reached after filtering the ones above max deviation
+     * @param unfilteredAnswers unfiltered oracle answers (1e10)
+     * @param filteredAnswers filtered oracle answers (1e10)
      */
     event PriceReceived(
         ITradingStorage.Id orderId,
@@ -379,7 +434,11 @@ interface IPriceAggregatorUtils is IPriceAggregator {
         bytes32 request,
         uint256 priceData,
         bool isLookback,
-        bool usedInMedian
+        bool usedInMedian,
+        bool minAnswersReached,
+        bool minFilteredAnswersReached,
+        IPriceAggregator.OrderAnswer[] unfilteredAnswers,
+        IPriceAggregator.OrderAnswer[] filteredAnswers
     );
 
     /**
@@ -388,10 +447,29 @@ interface IPriceAggregatorUtils is IPriceAggregator {
      */
     event LinkClaimedBack(uint256 amountLink);
 
+    /**
+     * @dev Emitted when the count of limit jobs is updated
+     * @param limitJobCount the count of limit jobs
+     */
+    event LimitJobCountUpdated(uint8 limitJobCount);
+
+    /**
+     * @dev Emitted when max market order deviation percentage is updated
+     * @param maxMarketDeviationP new value (1e3, %)
+     */
+    event MaxMarketDeviationPUpdated(uint24 maxMarketDeviationP);
+
+    /**
+     * @dev Emitted when max lookback order deviation percentage is updated
+     * @param maxLookbackDeviationP new value (1e3, %)
+     */
+    event MaxLookbackDeviationPUpdated(uint24 maxLookbackDeviationP);
+
     error TransferAndCallToOracleFailed();
     error SourceNotOracleOfRequest();
     error RequestAlreadyPending();
     error OracleAlreadyListed();
     error InvalidCandle();
     error WrongCollateralUsdDecimals();
+    error InvalidPoolType();
 }

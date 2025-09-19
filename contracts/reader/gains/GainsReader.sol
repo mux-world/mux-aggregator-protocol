@@ -14,6 +14,7 @@ contract GainsReader {
         IBorrowingFees.BorrowingData data;
         IBorrowingFees.OpenInterest oi;
         IBorrowingFees.BorrowingPairGroup[] groups;
+        IBorrowingFees.BorrowingFeePerBlockCap feePerBlockCap;
     }
 
     struct BorrowingGroupConfig {
@@ -38,10 +39,20 @@ contract GainsReader {
         uint128 precisionDelta;
     }
 
+    struct FeeTier {
+        uint32 currentDay;
+        IFeeTiers.FeeTier[] feeMultiplier;
+        uint256[] multipliers;
+    }
+
     struct GainsConfig {
-        IPairsStorage.Fee[] fees;
+        IPairsStorage.FeeGroup[] fees;
+        IPairsStorage.GlobalTradeFeeParams globalTradeFeeParams;
         IPairsStorage.Group[] groups;
         Collateral[] collaterals;
+        IPairsStorage.GroupLiquidationParams[] groupLiquidationParams;
+        IPairsStorage.GroupLiquidationParams[] pairLiquidationParams;
+        FeeTier feeTiers;
         uint256 maxNegativePnlOnOpenP;
         ITradingStorage.TradingActivated tradingState;
         uint256 pairsCount;
@@ -63,13 +74,24 @@ contract GainsReader {
     struct Trade {
         ITradingStorage.Trade trade;
         ITradingStorage.TradeInfo tradeInfo;
+        IPairsStorage.GroupLiquidationParams liquidationParams;
         IBorrowingFees.BorrowingInitialAccFees initialAccFees;
+    }
+
+    struct TraderFeeTierInfo {
+        IFeeTiers.TraderDailyInfo traderDailyInfo;
+        IFeeTiers.TraderInfo traderInfo;
+        IFeeTiers.TraderEnrollment traderEnrollment;
     }
 
     IGNSMultiCollatDiamond public immutable multiCollatDiamond;
 
     constructor(IGNSMultiCollatDiamond multiCollatDiamond_) {
         multiCollatDiamond = multiCollatDiamond_;
+    }
+
+    function _getCurrentDay() internal view returns (uint32) {
+        return uint32(block.timestamp / 1 days);
     }
 
     function borrowingFees(uint8 _collateralIndex, uint16[] calldata _borrowingGroupsIndices) external view returns (BorrowingFees memory) {
@@ -91,7 +113,8 @@ contract GainsReader {
             fees.pairs[i] = BorrowingPairConfig(
                     pairsData[i],
                     pairsOi[i],
-                    pairGroups[i]
+                    pairGroups[i],
+                    multiCollatDiamond.getBorrowingPairFeePerBlockCap(_collateralIndex, uint16(i))
             );
         }
 
@@ -114,11 +137,16 @@ contract GainsReader {
         uint256 groupsCount = multiCollatDiamond.groupsCount();
         uint256 pairsCount = multiCollatDiamond.pairsCount();
         uint8 collateralCount = multiCollatDiamond.getCollateralsCount();
+        uint256 feeTiersCount = multiCollatDiamond.getFeeTiersCount();
 
         GainsConfig memory gainsInfo = GainsConfig(
-            new IPairsStorage.Fee[](feesCount),
+            new IPairsStorage.FeeGroup[](feesCount),
+            multiCollatDiamond.getGlobalTradeFeeParams(),
             new IPairsStorage.Group[](groupsCount),
             new Collateral[](collateralCount),
+            new IPairsStorage.GroupLiquidationParams[](groupsCount),
+            new IPairsStorage.GroupLiquidationParams[](pairsCount),
+            FeeTier(_getCurrentDay(), new IFeeTiers.FeeTier[](feeTiersCount), new uint256[](groupsCount)),
             400000000000, // constant -40% after 2024-01-23. 1e10
             multiCollatDiamond.getTradingActivated(),
             pairsCount,
@@ -147,6 +175,18 @@ contract GainsReader {
 
             gainsInfo.collaterals[i-1] = collateralInfo;
         }
+        for (uint256 i = 0; i < groupsCount; i++) {
+            gainsInfo.groupLiquidationParams[i] = multiCollatDiamond.getGroupLiquidationParams(i);
+        }
+        for (uint256 i = 0; i < pairsCount; i++) {
+            gainsInfo.pairLiquidationParams[i] = multiCollatDiamond.getPairLiquidationParams(i);
+        }
+        for (uint256 i = 0; i < feeTiersCount; i++) {
+            gainsInfo.feeTiers.feeMultiplier[i] = multiCollatDiamond.getFeeTier(i);
+        }
+        for (uint256 i = 0; i < groupsCount; i++) {
+            gainsInfo.feeTiers.multipliers[i] = multiCollatDiamond.getGroupVolumeMultiplier(i);
+        }
         return gainsInfo;
     }
 
@@ -168,6 +208,7 @@ contract GainsReader {
     ) {
         ITradingStorage.Trade[] memory tradesFormStore = multiCollatDiamond.getTrades(trader);
         ITradingStorage.TradeInfo[] memory tradeInfosFromStore = multiCollatDiamond.getTradeInfos(trader);
+        IPairsStorage.GroupLiquidationParams[] memory liquidationParamsFromStore = multiCollatDiamond.getTradesLiquidationParams(trader);
 
         trades = new Trade[](tradesFormStore.length);
 
@@ -176,6 +217,7 @@ contract GainsReader {
             trades[i] = Trade(
                 t,
                 tradeInfosFromStore[i],
+                liquidationParamsFromStore[i],
                 multiCollatDiamond.getBorrowingInitialAccFees(t.collateralIndex, trader, t.index)
             );
         }
@@ -184,4 +226,10 @@ contract GainsReader {
         return (trades, pendingOrders);
     }
 
+    function getTraderFeeTierInfo(address _trader) external view returns (TraderFeeTierInfo memory) {
+        IFeeTiers.TraderDailyInfo memory traderDailyInfo = multiCollatDiamond.getFeeTiersTraderDailyInfo(_trader, _getCurrentDay());
+        IFeeTiers.TraderInfo memory traderInfo = multiCollatDiamond.getFeeTiersTraderInfo(_trader);
+        IFeeTiers.TraderEnrollment memory traderEnrollment = multiCollatDiamond.getTraderFeeTiersEnrollment(_trader);
+        return TraderFeeTierInfo(traderDailyInfo, traderInfo, traderEnrollment);
+    }
 }

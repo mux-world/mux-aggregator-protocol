@@ -4,10 +4,15 @@ pragma solidity 0.8.23;
 import "../types/IBorrowingFees.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSBorrowingFees facet (inherits types and also contains functions, events, and custom errors)
  */
 interface IBorrowingFeesUtils is IBorrowingFees {
+    /**
+     * @dev Initializes default fee per block caps
+     * @param _feePerBlockCap the new cap values
+     */
+    function initializeBorrowingFeePerBlockCap(BorrowingFeePerBlockCap memory _feePerBlockCap) external;
+
     /**
      * @dev Updates borrowing pair params of a pair
      * @param _collateralIndex index of the collateral
@@ -57,6 +62,24 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     ) external;
 
     /**
+     * @dev Updates default borrowing fee per block caps
+     * @param _feePerBlockCap new value
+     */
+    function setBorrowingFeePerBlockCap(IBorrowingFees.BorrowingFeePerBlockCap memory _feePerBlockCap) external;
+
+    /**
+     * @dev Updates borrowing fee per block caps for multiple pairs
+     * @param _collateralIndex index of the collateral
+     * @param _indices indices of the pairs
+     * @param _values new values
+     */
+    function setBorrowingPairFeePerBlockCapArray(
+        uint8 _collateralIndex,
+        uint16[] calldata _indices,
+        IBorrowingFees.BorrowingFeePerBlockCap[] calldata _values
+    ) external;
+
+    /**
      * @dev Callback after a trade is opened/closed to store pending borrowing fees and adjust open interests
      * @param _collateralIndex index of the collateral
      * @param _trader address of the trader
@@ -77,19 +100,39 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     ) external;
 
     /**
+     * @dev Resets a trade borrowing fee to 0 (useful when new trade opened or when partial trade executed)
+     * @param _collateralIndex index of the collateral
+     * @param _trader address of the trader
+     * @param _pairIndex index of the pair
+     * @param _index index of the trade
+     * @param _long true if trade is long, false if trade is short
+     */
+    function resetTradeBorrowingFees(
+        uint8 _collateralIndex,
+        address _trader,
+        uint16 _pairIndex,
+        uint32 _index,
+        bool _long
+    ) external;
+
+    /**
      * @dev Returns the pending acc borrowing fees for a pair on both sides
      * @param _collateralIndex index of the collateral
      * @param _pairIndex index of the pair
      * @param _currentBlock current block number
      * @return accFeeLong new pair acc borrowing fee on long side
      * @return accFeeShort new pair acc borrowing fee on short side
-     * @return pairAccFeeDelta  pair acc borrowing fee delta (for side that changed)
+     * @return pairAccFeeLongDelta  pair acc borrowing fee delta on long side
+     * @return pairAccFeeShortDelta  pair acc borrowing fee delta on short side
      */
     function getBorrowingPairPendingAccFees(
         uint8 _collateralIndex,
         uint16 _pairIndex,
         uint256 _currentBlock
-    ) external view returns (uint64 accFeeLong, uint64 accFeeShort, uint64 pairAccFeeDelta);
+    )
+        external
+        view
+        returns (uint64 accFeeLong, uint64 accFeeShort, uint64 pairAccFeeLongDelta, uint64 pairAccFeeShortDelta);
 
     /**
      * @dev Returns the pending acc borrowing fees for a borrowing group on both sides
@@ -98,13 +141,17 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param _currentBlock current block number
      * @return accFeeLong new group acc borrowing fee on long side
      * @return accFeeShort new group acc borrowing fee on short side
-     * @return groupAccFeeDelta  group acc borrowing fee delta (for side that changed)
+     * @return groupAccFeeLongDelta  group acc borrowing fee delta on long side
+     * @return groupAccFeeShortDelta  group acc borrowing fee delta on short side
      */
     function getBorrowingGroupPendingAccFees(
         uint8 _collateralIndex,
         uint16 _groupIndex,
         uint256 _currentBlock
-    ) external view returns (uint64 accFeeLong, uint64 accFeeShort, uint64 groupAccFeeDelta);
+    )
+        external
+        view
+        returns (uint64 accFeeLong, uint64 accFeeShort, uint64 groupAccFeeLongDelta, uint64 groupAccFeeShortDelta);
 
     /**
      * @dev Returns the borrowing fee for a trade
@@ -253,6 +300,31 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     function getPairMaxOiCollateral(uint8 _collateralIndex, uint16 _pairIndex) external view returns (uint256);
 
     /**
+     * @dev Returns the default minimum and maximum fee per block percentage (1e3 precision)
+     */
+    function getBorrowingFeePerBlockCap() external view returns (BorrowingFeePerBlockCap memory);
+
+    /**
+     * @dev Returns the minimum and maximum fee per block percentage for a pair (1e3 precision)
+     * @param _collateralIndex index of the collateral
+     * @param _pairIndex index of the pair
+     */
+    function getBorrowingPairFeePerBlockCap(
+        uint8 _collateralIndex,
+        uint16 _pairIndex
+    ) external view returns (BorrowingFeePerBlockCap memory);
+
+    /**
+     * @dev Returns the minimum and maximum fee per block percentage for multiple pairs
+     * @param _collateralIndex index of the collateral
+     * @param _indices indices of the pairs
+     */
+    function getBorrowingPairFeePerBlockCaps(
+        uint8 _collateralIndex,
+        uint16[] calldata _indices
+    ) external view returns (BorrowingFeePerBlockCap[] memory);
+
+    /**
      * @dev Emitted when a pair's borrowing params is updated
      * @param pairIndex index of the pair
      * @param groupIndex index of its new group
@@ -310,6 +382,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
         address indexed trader,
         uint16 indexed pairIndex,
         uint32 index,
+        bool long,
         uint64 initialPairAccFee,
         uint64 initialGroupAccFee
     );
@@ -399,6 +472,27 @@ interface IBorrowingFeesUtils is IBorrowingFees {
         uint72 delta,
         uint72 newOiLong,
         uint72 newOiShort
+    );
+
+    /**
+     * @dev Emitted when the default fee per block cap is updated
+     * @param minP new min value (1e3% precision)
+     * @param maxP new max value (1e3% precision)
+     */
+    event BorrowingFeePerBlockCapUpdated(uint32 minP, uint32 maxP);
+
+    /**
+     * @dev Emitted when the a pair's fee per block cap is updated
+     * @param collateralIndex index of the collateral
+     * @param pairIndex index of the pair
+     * @param minP new min value (1e3% precision)
+     * @param maxP new max value (1e3% precision)
+     */
+    event BorrowingPairFeePerBlockCapUpdated(
+        uint8 indexed collateralIndex,
+        uint16 indexed pairIndex,
+        uint32 minP,
+        uint32 maxP
     );
 
     error BorrowingZeroGroup();

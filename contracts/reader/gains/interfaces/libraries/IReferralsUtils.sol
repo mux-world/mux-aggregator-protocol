@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import "../types/IReferrals.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSReferrals facet (inherits types and also contains functions, events, and custom errors)
  */
 interface IReferralsUtils is IReferrals {
@@ -12,15 +11,9 @@ interface IReferralsUtils is IReferrals {
      *
      * @param _allyFeeP % of total referral fee going to ally
      * @param _startReferrerFeeP initial % of total referral fee earned when zero volume referred
-     * @param _openFeeP % of open fee going to referral fee
      * @param _targetVolumeUsd usd opening volume to refer to reach 100% of referral fee
      */
-    function initializeReferrals(
-        uint256 _allyFeeP,
-        uint256 _startReferrerFeeP,
-        uint256 _openFeeP,
-        uint256 _targetVolumeUsd
-    ) external;
+    function initializeReferrals(uint256 _allyFeeP, uint256 _startReferrerFeeP, uint256 _targetVolumeUsd) external;
 
     /**
      * @dev Updates allyFeeP
@@ -33,12 +26,6 @@ interface IReferralsUtils is IReferrals {
      * @param _value new start referrer fee %
      */
     function updateStartReferrerFeeP(uint256 _value) external;
-
-    /**
-     * @dev Updates openFeeP
-     * @param _value new open fee %
-     */
-    function updateReferralsOpenFeeP(uint256 _value) external;
 
     /**
      * @dev Updates targetVolumeUsd
@@ -72,6 +59,20 @@ interface IReferralsUtils is IReferrals {
     function unwhitelistReferrers(address[] calldata _referrers) external;
 
     /**
+     * @dev Overrides referral fee % share of total trading fee for referrers
+     * @param _referrers array of referrer addresses
+     * @param _referralFeeP array of referral fee % (1e3)
+     */
+    function overrideReferralFeeP(address[] calldata _referrers, uint24[] calldata _referralFeeP) external;
+
+    /**
+     * @dev Overrides ally fee % share of total trading fee for allies
+     * @param _allies array of ally addresses
+     * @param _allyFeeP array of ally fee % (1e3)
+     */
+    function overrideAllyFeeP(address[] calldata _allies, uint24[] calldata _allyFeeP) external;
+
+    /**
      * @dev Registers potential referrer for trader (only works if trader wasn't referred yet by someone else)
      * @param _trader trader address
      * @param _referral referrer address
@@ -82,16 +83,15 @@ interface IReferralsUtils is IReferrals {
      * @dev Distributes ally and referrer rewards
      * @param _trader trader address
      * @param _volumeUsd trading volume in usd (1e18 precision)
-     * @param _pairOpenFeeP pair open fee in % (1e10 precision)
+     * @param _referrerFeeUsd referrer fee in USD (1e18 precision)
      * @param _gnsPriceUsd token price in usd (1e10 precision)
-     * @return USD value of distributed reward (referrer + ally)
      */
     function distributeReferralReward(
         address _trader,
         uint256 _volumeUsd, // 1e18
-        uint256 _pairOpenFeeP,
+        uint256 _referrerFeeUsd,
         uint256 _gnsPriceUsd // 1e10
-    ) external returns (uint256);
+    ) external;
 
     /**
      * @dev Claims pending GNS ally rewards of caller
@@ -104,11 +104,10 @@ interface IReferralsUtils is IReferrals {
     function claimReferrerRewards() external;
 
     /**
-     * @dev Returns referrer fee % of trade position size
-     * @param _pairOpenFeeP pair open fee in % (1e10 precision)
-     * @param _volumeReferredUsd referred trading volume in usd (1e18 precision)
+     * @dev Returns referrer fee % progress towards earning 100% based on his volume referred (1e10)
+     * @param _referrer referrer address
      */
-    function getReferrerFeeP(uint256 _pairOpenFeeP, uint256 _volumeReferredUsd) external view returns (uint256);
+    function getReferrerFeeProgressP(address _referrer) external view returns (uint256);
 
     /**
      * @dev Returns last referrer of trader (whether referrer active or not)
@@ -145,11 +144,6 @@ interface IReferralsUtils is IReferrals {
     function getReferralsStartReferrerFeeP() external view returns (uint256);
 
     /**
-     * @dev Returns % of opening fee going to referral fee
-     */
-    function getReferralsOpenFeeP() external view returns (uint256);
-
-    /**
      * @dev Returns target volume in usd to reach 100% of referral fee
      */
     function getReferralsTargetVolumeUsd() external view returns (uint256);
@@ -165,6 +159,12 @@ interface IReferralsUtils is IReferrals {
      * @param _referrer address of referrer
      */
     function getReferrerDetails(address _referrer) external view returns (ReferrerDetails memory);
+
+    /**
+     * @dev Returns referral settings overrides
+     * @param _address address of referrer/ally
+     */
+    function getReferralSettingsOverrides(address _address) external view returns (ReferralSettingsOverrides memory);
 
     /**
      * @dev Emitted when allyFeeP is updated
@@ -265,6 +265,20 @@ interface IReferralsUtils is IReferrals {
      * @param amountGns GNS pending rewards amount
      */
     event ReferrerRewardsClaimed(address indexed referrer, uint256 amountGns);
+
+    /**
+     * @dev Emitted when a referrer fee % is overridden
+     * @param referrer referrer address
+     * @param referralFeeP new referral fee % (1e3)
+     */
+    event OverrodeReferralFeeP(address indexed referrer, uint24 referralFeeP);
+
+    /**
+     * @dev Emitted when an ally fee % is overridden
+     * @param ally ally address
+     * @param allyFeeP new ally fee % (1e3)
+     */
+    event OverrodeAllyFeeP(address indexed ally, uint24 allyFeeP);
 
     error NoPendingRewards();
     error AlreadyActive();

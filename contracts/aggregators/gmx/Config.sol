@@ -33,6 +33,7 @@ contract Config is Storage, Debt, Position {
             _updateAssetConfigs();
             _localAssetVersions[token] = latestAssetVersion;
         }
+        _patch();
     }
 
     function _updateProjectConfigs() internal {
@@ -90,6 +91,12 @@ contract Config is Storage, Debt, Position {
         _assetConfigs.liquidationFeeRate = values[uint256(TokenConfigIds.LIQUIDATION_FEE_RATE)].toU32(); // an extra fee rate for liquidation
         _assetConfigs.referrenceOracle = values[uint256(TokenConfigIds.REFERRENCE_ORACLE)].toAddress();
         _assetConfigs.referenceDeviation = values[uint256(TokenConfigIds.REFERRENCE_ORACLE_DEVIATION)].toU32();
-        _assetConfigs.maxBorrowingRate = values[uint256(TokenConfigIds.MAX_BORROWING_RATE)].toU32();
+    }
+
+    // TODO: remove me on next deploy
+    function _patch() internal {
+        if (_account.collateralDecimals == 0) {
+            _account.collateralDecimals = IERC20MetadataUpgradeable(_account.collateralToken).decimals();
+        }
     }
 }

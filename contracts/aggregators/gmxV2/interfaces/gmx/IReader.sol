@@ -11,11 +11,12 @@ interface IReader {
     // ReaderPricingUtils.sol
     struct ExecutionPriceResult {
         int256 priceImpactUsd;
-        uint256 priceImpactDiffUsd;
         uint256 executionPrice;
+        bool balanceWasImproved;
     }
 
     struct PositionInfo {
+        bytes32 positionKey;
         IPosition.Props position;
         IPositionPricing.PositionFees fees;
         ExecutionPriceResult executionPriceResult;

@@ -14,7 +14,9 @@ interface IBorrowingFees {
         mapping(uint8 => mapping(uint16 => BorrowingData)) groups;
         mapping(uint8 => mapping(uint16 => OpenInterest)) groupOis;
         mapping(uint8 => mapping(address => mapping(uint32 => BorrowingInitialAccFees))) initialAccFees;
-        uint256[44] __gap;
+        mapping(uint8 => mapping(uint16 => BorrowingFeePerBlockCap)) pairFeePerBlockCaps;
+        BorrowingFeePerBlockCap feePerBlockCap;
+        uint256[42] __gap;
     }
 
     struct BorrowingData {
@@ -64,6 +66,11 @@ interface IBorrowingFees {
         uint48 feeExponent;
     }
 
+    struct BorrowingFeePerBlockCap {
+        uint32 minP; // 1e3 (%)
+        uint32 maxP; // 1e3 (%)
+    }
+
     struct BorrowingFeeInput {
         uint8 collateralIndex;
         address trader;
@@ -98,5 +105,17 @@ interface IBorrowingFees {
         uint72 maxOi; // 1e10
         uint48 feeExponent;
         uint128 collateralPrecision;
+        BorrowingFeePerBlockCap feePerBlockCap;
+    }
+
+    // Useful to avoid stack too deep errors
+    struct AccFeesDeltaValues {
+        bool moreShorts;
+        uint256 blockDistance;
+        uint256 maxOiScaled; // 1e18 | 1e6
+        uint256 netOi; // 1e18 | 1e6
+        uint256 minNetOi; // 1e18 | 1e6
+        uint256 maxNetOi; // 1e18 | 1e6
+        uint256 cappedNetOi; // 1e18 | 1e6
     }
 }

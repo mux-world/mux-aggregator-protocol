@@ -22,7 +22,7 @@ contract EventEmitter is Initializable, IEventEmitter {
         address proxyOwner,
         IGmxV2Adatper.OrderCreateParams calldata createParams,
         IGmxV2Adatper.PositionResult calldata result
-    ) external {
+    ) external onlyProxy {
         emit PlacePositionOrder(
             msg.sender, // proxy
             proxyOwner,
@@ -31,7 +31,10 @@ contract EventEmitter is Initializable, IEventEmitter {
         );
     }
 
-    function onPlaceLiquidateOrder(address proxyOwner, IGmxV2Adatper.PositionResult calldata result) external {
+    function onPlaceLiquidateOrder(
+        address proxyOwner,
+        IGmxV2Adatper.PositionResult calldata result
+    ) external onlyProxy {
         emit PlaceLiquidateOrder(
             msg.sender, // proxy
             proxyOwner,
@@ -39,7 +42,7 @@ contract EventEmitter is Initializable, IEventEmitter {
         );
     }
 
-    function onBorrowCollateral(address proxyOwner, IGmxV2Adatper.DebtResult calldata result) external {
+    function onBorrowCollateral(address proxyOwner, IGmxV2Adatper.DebtResult calldata result) external onlyProxy {
         emit BorrowCollateral(
             msg.sender, // proxy
             proxyOwner,
@@ -47,7 +50,7 @@ contract EventEmitter is Initializable, IEventEmitter {
         );
     }
 
-    function onRepayCollateral(address proxyOwner, IGmxV2Adatper.DebtResult calldata result) external {
+    function onRepayCollateral(address proxyOwner, IGmxV2Adatper.DebtResult calldata result) external onlyProxy {
         emit RepayCollateral(
             msg.sender, // proxy
             proxyOwner,
@@ -61,7 +64,7 @@ contract EventEmitter is Initializable, IEventEmitter {
         uint256 sizeDeltaUsd,
         uint256 acceptablePrice,
         uint256 triggerPrice
-    ) external {
+    ) external onlyProxy {
         emit UpdateOrder(
             msg.sender, // proxy
             proxyOwner,
@@ -72,7 +75,7 @@ contract EventEmitter is Initializable, IEventEmitter {
         );
     }
 
-    function onCancelOrder(address proxyOwner, bytes32 key) external {
+    function onCancelOrder(address proxyOwner, bytes32 key) external onlyProxy {
         emit CancelOrder(
             msg.sender, // proxy
             proxyOwner,
@@ -91,7 +94,7 @@ contract EventEmitter is Initializable, IEventEmitter {
         uint256 newInflightDebtCollateralAmount, // collateral decimals
         uint256 newPendingFeeCollateralAmount, // collateral decimals
         uint256 newDebtEntryFunding
-    ) external {
+    ) external onlyProxy {
         emit UpdateDebt(
             msg.sender, // proxy
             proxyOwner,

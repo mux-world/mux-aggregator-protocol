@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import "../types/ITradingStorage.sol";
 
 /**
- * @custom:version 8
  * @dev Contains the types for the GNSTradingCallbacks facet
  */
 interface ITradingCallbacks {
@@ -18,7 +17,7 @@ interface ITradingCallbacks {
     enum CancelReason {
         NONE,
         PAUSED, // deprecated
-        MARKET_CLOSED,
+        MARKET_CLOSED, // deprecated
         SLIPPAGE,
         TP_REACHED,
         SL_REACHED,
@@ -27,7 +26,8 @@ interface ITradingCallbacks {
         MAX_LEVERAGE,
         NO_TRADE,
         WRONG_TRADE, // deprecated
-        NOT_HIT
+        NOT_HIT,
+        LIQ_REACHED
     }
 
     struct AggregatorAnswer {
@@ -41,17 +41,15 @@ interface ITradingCallbacks {
 
     // Useful to avoid stack too deep errors
     struct Values {
-        uint256 positionSizeCollateral;
-        uint256 gnsPriceCollateral;
         int256 profitP;
         uint256 executionPrice;
         uint256 liqPrice;
         uint256 amountSentToTrader;
-        uint256 reward1;
-        uint256 reward2;
-        uint256 reward3;
-        uint128 collateralPrecisionDelta;
         uint256 collateralPriceUsd;
         bool exactExecution;
+        uint256 collateralLeftInStorage;
+        uint256 oraclePrice;
+        uint32 limitIndex;
+        uint256 priceImpactP;
     }
 }

@@ -21,6 +21,7 @@ interface IExchangeRouter {
         bool shouldUnwrapNativeToken;
         bool autoCancel;
         bytes32 referralCode;
+        bytes32[] dataList;
     }
 
     // @param receiver for order.receiver

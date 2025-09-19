@@ -2,12 +2,12 @@
 pragma solidity 0.8.23;
 
 /**
- * @custom:version 8
  * @dev Interface for errors potentially used in all libraries (general names)
  */
 interface IGeneralErrors {
     error InitError();
     error InvalidAddresses();
+    error InvalidAddress();
     error InvalidInputLength();
     error InvalidCollateralIndex();
     error WrongParams();
@@ -25,4 +25,7 @@ interface IGeneralErrors {
     error AboveMax();
     error NotAuthorized();
     error WrongTradeType();
+    error WrongOrderType();
+    error InsufficientBalance();
+    error UnsupportedChain();
 }

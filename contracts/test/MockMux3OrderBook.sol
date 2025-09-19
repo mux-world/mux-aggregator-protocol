@@ -94,4 +94,8 @@ contract MockMux3OrderBook is IMux3OrderBook {
         lastPlacePositionOrderMarketId = orderParams.marketId;
         lastPlacePositionOrderReferralCode = referralCode;
     }
+
+    function cancelOrder(uint64 orderId) external payable {}
+
+    function getOrder(uint64 orderId) external view returns (OrderData memory, bool) {}
 }

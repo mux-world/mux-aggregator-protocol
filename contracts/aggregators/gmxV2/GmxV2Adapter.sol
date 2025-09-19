@@ -23,7 +23,8 @@ contract GmxV2Adapter is
     Initializable,
     ReentrancyGuardUpgradeable,
     ImplementationGuard,
-    IOrderCallbackReceiver
+    IOrderCallbackReceiverV21,
+    IOrderCallbackReceiverV22
 {
     using LibUtils for uint256;
     using MathUpgradeable for uint256;
@@ -90,6 +91,17 @@ contract GmxV2Adapter is
         }
     }
 
+    function updateOrder(
+        bytes32 key,
+        uint256 sizeDeltaUsd,
+        uint256 acceptablePrice,
+        uint256 triggerPrice,
+        bool autoCancel
+    ) external onlyTrader onlyNotLiquidating nonReentrant {
+        _store.updateConfigs();
+        _store.updateOrder(key, sizeDeltaUsd, acceptablePrice, triggerPrice, autoCancel);
+    }
+
     function liquidatePosition(
         Prices memory prices,
         uint256 executionFee,
@@ -146,11 +158,15 @@ contract GmxV2Adapter is
     }
 
     // =========================================== calbacks ===========================================
-    function afterOrderExecution(
-        bytes32 key,
-        IOrder.Props memory,
-        IEvent.EventLogData memory
-    ) external onlyValidCallbackSender {
+    function afterOrderExecution(bytes32 key, IOrder.PropsV21 memory, IEvent.EventLogData memory) external {
+        _afterOrderExecution(key);
+    }
+
+    function afterOrderExecution(bytes32 key, IEvent.EventLogData memory, IEvent.EventLogData memory) external {
+        _afterOrderExecution(key);
+    }
+
+    function _afterOrderExecution(bytes32 key) internal onlyValidCallbackSender {
         uint256 oldDebtCollateralAmount = _store.account.debtCollateralAmount;
         uint256 oldInflightDebtCollateralAmount = _store.account.inflightDebtCollateralAmount;
         uint256 oldPendingFeeCollateralAmount = _store.account.pendingFeeCollateralAmount;
@@ -180,11 +196,15 @@ contract GmxV2Adapter is
         );
     }
 
-    function afterOrderCancellation(
-        bytes32 key,
-        IOrder.Props memory,
-        IEvent.EventLogData memory
-    ) external onlyValidCallbackSender {
+    function afterOrderCancellation(bytes32 key, IOrder.PropsV21 memory, IEvent.EventLogData memory) external {
+        _afterOrderCancellation(key);
+    }
+
+    function afterOrderCancellation(bytes32 key, IEvent.EventLogData memory, IEvent.EventLogData memory) external {
+        _afterOrderCancellation(key);
+    }
+
+    function _afterOrderCancellation(bytes32 key) internal onlyValidCallbackSender {
         uint256 oldDebtCollateralAmount = _store.account.debtCollateralAmount;
         uint256 oldInflightDebtCollateralAmount = _store.account.inflightDebtCollateralAmount;
         uint256 oldPendingFeeCollateralAmount = _store.account.pendingFeeCollateralAmount;
@@ -211,7 +231,13 @@ contract GmxV2Adapter is
 
     function afterOrderFrozen(
         bytes32 key,
-        IOrder.Props memory,
+        IOrder.PropsV21 memory,
+        IEvent.EventLogData memory
+    ) external onlyValidCallbackSender {}
+
+    function afterOrderFrozen(
+        bytes32 key,
+        IEvent.EventLogData memory,
         IEvent.EventLogData memory
     ) external onlyValidCallbackSender {}
 

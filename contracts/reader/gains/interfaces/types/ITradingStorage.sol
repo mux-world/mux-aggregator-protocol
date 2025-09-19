@@ -10,7 +10,8 @@ interface ITradingStorage {
     struct TradingStorage {
         TradingActivated tradingActivated; // 8 bits
         uint8 lastCollateralIndex; // 8 bits
-        uint240 __placeholder; // 240 bits
+        uint8 gnsCollateralIndex; // 8 bits
+        uint232 __placeholder; // 232 bits
         mapping(uint8 => Collateral) collaterals;
         mapping(uint8 => address) gTokens;
         mapping(address => uint8) collateralIndex;

@@ -5,7 +5,6 @@ import "./types/IAddressStore.sol";
 import "./IGeneralErrors.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for AddressStoreUtils library
  */
 interface IGNSAddressStore is IAddressStore, IGeneralErrors {
@@ -26,6 +25,14 @@ interface IGNSAddressStore is IAddressStore, IGeneralErrors {
      * @param _role role to check
      */
     function hasRole(address _account, Role _role) external view returns (bool);
+
+    /**
+     * @dev Returns whether an account has been granted at least one of two roles
+     * @param _account address to check
+     * @param _roleA first role to check
+     * @param _roleB second role to check
+     */
+    function hasRoles(address _account, Role _roleA, Role _roleB) external view returns (bool);
 
     /**
      * @dev Updates access control for a list of accounts

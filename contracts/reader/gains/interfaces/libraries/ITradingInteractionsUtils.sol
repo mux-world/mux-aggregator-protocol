@@ -3,12 +3,13 @@ pragma solidity 0.8.23;
 
 import "../types/ITradingInteractions.sol";
 import "../types/ITradingStorage.sol";
+import "../libraries/IUpdateLeverageUtils.sol";
+import "../libraries/IUpdatePositionSizeUtils.sol";
 
 /**
- * @custom:version 8
  * @dev Interface for GNSTradingInteractions facet (inherits types and also contains functions, events, and custom errors)
  */
-interface ITradingInteractionsUtils is ITradingInteractions {
+interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtils, IUpdatePositionSizeUtils {
     /**
      * @dev Initializes the trading facet
      * @param _marketOrdersTimeoutBlocks The number of blocks after which a market order is considered timed out
@@ -67,10 +68,18 @@ interface ITradingInteractionsUtils is ITradingInteractions {
     ) external payable;
 
     /**
+     * @dev Updates existing trade's max closing slippage % for caller
+     * @param _index index of trade
+     * @param _maxSlippageP new max closing slippage % (1e3 precision)
+     */
+    function updateMaxClosingSlippageP(uint32 _index, uint16 _maxSlippageP) external;
+
+    /**
      * @dev Closes an open trade (market order) for caller
      * @param _index the index of the trade of caller
+     * @param _expectedPrice expected closing price, used to check max slippage (1e10 precision)
      */
-    function closeTradeMarket(uint32 _index) external;
+    function closeTradeMarket(uint32 _index, uint64 _expectedPrice) external;
 
     /**
      * @dev Updates an existing limit/stop order for caller
@@ -115,16 +124,71 @@ interface ITradingInteractionsUtils is ITradingInteractions {
     function triggerOrder(uint256 _packed) external;
 
     /**
-     * @dev Safety function in case oracles don't answer in time, allows caller to claim back the collateral of a pending open market order
-     * @param _orderId the id of the pending open market order to be canceled
+     * @dev Safety function in case oracles don't answer in time, allows caller to cancel a pending order and if relevant claim back any stuck collateral
+     * @dev Only allowed for MARKET_OPEN, MARKET_CLOSE, UPDATE_LEVERAGE, MARKET_PARTIAL_OPEN, and MARKET_PARTIAL_CLOSE orders
+     * @param _orderIndex the id of the pending order to cancel
      */
-    function openTradeMarketTimeout(ITradingStorage.Id memory _orderId) external;
+    function cancelOrderAfterTimeout(uint32 _orderIndex) external;
 
     /**
-     * @dev Safety function in case oracles don't answer in time, allows caller to initiate another market close order for the same open trade
-     * @param _orderId the id of the pending close market order to be canceled
+     * @dev Update trade leverage
+     * @param _index index of trade
+     * @param _newLeverage new leverage (1e3)
      */
-    function closeTradeMarketTimeout(ITradingStorage.Id memory _orderId) external;
+    function updateLeverage(uint32 _index, uint24 _newLeverage) external;
+
+    /**
+     * @dev Wraps native tokens and updates trade leverage
+     * @param _index index of trade
+     * @param _newLeverage new leverage (1e3)
+     */
+    function updateLeverageNative(uint32 _index, uint24 _newLeverage) external payable;
+
+    /**
+     * @dev Increase trade position size
+     * @param _index index of trade
+     * @param _collateralDelta collateral to add (collateral precision)
+     * @param _leverageDelta partial trade leverage (1e3)
+     * @param _expectedPrice expected price of execution (1e10 precision)
+     * @param _maxSlippageP max slippage % (1e3)
+     */
+    function increasePositionSize(
+        uint32 _index,
+        uint120 _collateralDelta,
+        uint24 _leverageDelta,
+        uint64 _expectedPrice,
+        uint16 _maxSlippageP
+    ) external;
+
+    /**
+     * @dev Wraps native token and increase trade position size
+     * @param _index index of trade
+     * @param _collateralDelta collateral to add (collateral precision)
+     * @param _leverageDelta partial trade leverage (1e3)
+     * @param _expectedPrice expected price of execution (1e10 precision)
+     * @param _maxSlippageP max slippage % (1e3)
+     */
+    function increasePositionSizeNative(
+        uint32 _index,
+        uint120 _collateralDelta,
+        uint24 _leverageDelta,
+        uint64 _expectedPrice,
+        uint16 _maxSlippageP
+    ) external payable;
+
+    /**
+     * @dev Decrease trade position size
+     * @param _index index of trade
+     * @param _collateralDelta collateral to remove (collateral precision)
+     * @param _leverageDelta leverage to reduce by (1e3)
+     * @param _expectedPrice expected closing price, used to check max slippage (1e10 precision)
+     */
+    function decreasePositionSize(
+        uint32 _index,
+        uint120 _collateralDelta,
+        uint24 _leverageDelta,
+        uint64 _expectedPrice
+    ) external;
 
     /**
      * @dev Returns the wrapped native token or address(0) if the current chain, or the wrapped token, is not supported.
@@ -182,7 +246,7 @@ interface ITradingInteractionsUtils is ITradingInteractions {
      * @param pairIndex index of the trading pair
      * @param index index of the open limit order for caller
      */
-    event OpenOrderPlaced(address indexed trader, uint16 indexed pairIndex, uint32 index);
+    event OpenOrderPlaced(address indexed trader, uint16 indexed pairIndex, uint32 indexed index);
 
     /**
      *
@@ -197,7 +261,7 @@ interface ITradingInteractionsUtils is ITradingInteractions {
     event OpenLimitUpdated(
         address indexed trader,
         uint16 indexed pairIndex,
-        uint32 index,
+        uint32 indexed index,
         uint64 newPrice,
         uint64 newTp,
         uint64 newSl,
@@ -210,7 +274,7 @@ interface ITradingInteractionsUtils is ITradingInteractions {
      * @param pairIndex index of the trading pair
      * @param index index of the open limit/stop order for caller
      */
-    event OpenLimitCanceled(address indexed trader, uint16 indexed pairIndex, uint32 index);
+    event OpenLimitCanceled(address indexed trader, uint16 indexed pairIndex, uint32 indexed index);
 
     /**
      * @dev Emitted when a trigger order is initiated (tp/sl/liq/limit/stop orders)
@@ -239,7 +303,7 @@ interface ITradingInteractionsUtils is ITradingInteractions {
      * @param pairIndex index of the trading pair
      * @param index index of the open trade for caller
      */
-    event CouldNotCloseTrade(address indexed trader, uint16 indexed pairIndex, uint32 index);
+    event CouldNotCloseTrade(address indexed trader, uint16 indexed pairIndex, uint32 indexed index);
 
     /**
      * @dev Emitted when a native token is wrapped
@@ -251,15 +315,13 @@ interface ITradingInteractionsUtils is ITradingInteractions {
     error NotWrappedNativeToken();
     error DelegateNotApproved();
     error PriceZero();
-    error AbovePairMaxOi();
-    error AboveGroupMaxOi();
+    error AboveExposureLimits();
     error CollateralNotActive();
-    error BelowMinPositionSizeUsd();
     error PriceImpactTooHigh();
     error NoTrade();
     error NoOrder();
-    error WrongOrderType();
     error AlreadyBeingMarketClosed();
+    error ConflictingPendingOrder(ITradingStorage.PendingOrderType);
     error WrongLeverage();
     error WrongTp();
     error WrongSl();
@@ -269,4 +331,5 @@ interface ITradingInteractionsUtils is ITradingInteractions {
     error NoTp();
     error NotYourOrder();
     error DelegatedActionNotAllowed();
+    error InsufficientCollateral();
 }

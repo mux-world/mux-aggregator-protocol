@@ -2,7 +2,6 @@
 pragma solidity 0.8.23;
 
 /**
- * @custom:version 5
  * @dev Interface for Chainlink feeds
  */
 interface IChainlinkFeed {

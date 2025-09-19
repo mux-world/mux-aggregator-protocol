@@ -12,6 +12,8 @@ import "./ITradingInteractions.sol";
 import "./ITradingCallbacks.sol";
 import "./IBorrowingFees.sol";
 import "./IPriceAggregator.sol";
+import "./IOtc.sol";
+import "./IChainConfig.sol";
 
 /**
  * @dev Contains the types of all diamond facets
@@ -27,7 +29,7 @@ interface ITypes is
     ITradingInteractions,
     ITradingCallbacks,
     IBorrowingFees,
-    IPriceAggregator
-{
-
-}
+    IPriceAggregator,
+    IOtc,
+    IChainConfig
+{}

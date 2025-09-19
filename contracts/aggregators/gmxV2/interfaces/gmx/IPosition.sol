@@ -27,6 +27,7 @@ interface IPosition {
     // @param sizeInUsd the position's size in USD
     // @param sizeInTokens the position's size in tokens
     // @param collateralAmount the amount of collateralToken for collateral
+    // @param pendingImpactAmount the amount of pending impact for the position
     // @param borrowingFactor the position's borrowing factor
     // @param fundingFeeAmountPerSize the position's funding fee per size
     // @param longTokenClaimableFundingAmountPerSize the position's claimable funding amount per size
@@ -39,6 +40,7 @@ interface IPosition {
         uint256 sizeInUsd;
         uint256 sizeInTokens;
         uint256 collateralAmount;
+        int256 pendingImpactAmount;
         uint256 borrowingFactor;
         uint256 fundingFeeAmountPerSize;
         uint256 longTokenClaimableFundingAmountPerSize;

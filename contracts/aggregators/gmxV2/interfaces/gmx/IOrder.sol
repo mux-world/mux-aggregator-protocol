@@ -48,10 +48,23 @@ interface IOrder {
     // @param addresses address values
     // @param numbers number values
     // @param flags boolean values
+    struct PropsV21 {
+        Addresses addresses;
+        NumbersV21 numbers;
+        Flags flags;
+    }
+
+    // @dev there is a limit on the number of fields a struct can have when being passed
+    // or returned as a memory variable which can cause "Stack too deep" errors
+    // use sub-structs to avoid this issue
+    // @param addresses address values
+    // @param numbers number values
+    // @param flags boolean values
     struct Props {
         Addresses addresses;
         Numbers numbers;
         Flags flags;
+        bytes32[] _dataList;
     }
 
     // @param account the account of the order
@@ -100,6 +113,21 @@ interface IOrder {
     // note that for decrease orders, multiple tokens could be received, for this reason, the
     // minOutputAmount value is treated as a USD value for validation in decrease orders
     struct Numbers {
+        OrderType orderType;
+        DecreasePositionSwapType decreasePositionSwapType;
+        uint256 sizeDeltaUsd;
+        uint256 initialCollateralDeltaAmount;
+        uint256 triggerPrice;
+        uint256 acceptablePrice;
+        uint256 executionFee;
+        uint256 callbackGasLimit;
+        uint256 minOutputAmount;
+        uint256 updatedAtTime;
+        uint256 validFromTime;
+        uint256 srcChainId;
+    }
+
+    struct NumbersV21 {
         OrderType orderType;
         DecreasePositionSwapType decreasePositionSwapType;
         uint256 sizeDeltaUsd;
