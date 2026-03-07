@@ -241,6 +241,8 @@ contract ProxyFactory is Storage, ProxyBeacon, DebtManager, ProxyConfig, Ownable
             IMux3OrderBook(_mux3OrderBook).wrapNative{ value: gas }(gas);
             IMux3OrderBook(_mux3OrderBook).depositGas(accountOwner, gas);
         }
+        // note: when called via Delegator, the Delegator contract is responsible for enforcing
+        //       collateralToken/collateralAmount are the same as inner positionOrderCallData
         if (collateralAmount > 0) {
             if (
                 collateralToken == address(0x0) ||
