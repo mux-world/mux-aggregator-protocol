@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "../../interfaces/IGmxRouter.sol";
+import "../../interfaces/IGmxVault.sol";
 import "../../interfaces/ILiquidityPool.sol";
 import "../../interfaces/IProxyFactory.sol";
 import "../../components/ImplementationGuard.sol";
@@ -122,6 +123,7 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
         uint96 slPriceUsd,
         uint8 flags // MARKET, TRIGGER
     ) external payable onlyTraderOrFactory nonReentrant {
+        revert("NotAllowed");
         require(!_account.isLiquidating, "TradeForbidden");
 
         _updateConfigs();
@@ -243,37 +245,6 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
         }
     }
 
-    function updateOrder(
-        bytes32 orderKey,
-        uint256 collateralDelta,
-        uint256 sizeDelta,
-        uint256 triggerPrice,
-        bool triggerAboveThreshold
-    ) external onlyTraderOrFactory nonReentrant {
-        _updateConfigs();
-        _cleanOrders();
-
-        LibGmx.OrderHistory memory history = LibGmx.decodeOrderHistoryKey(orderKey);
-        if (history.receiver == LibGmx.OrderReceiver.OB_INC) {
-            IGmxOrderBook(_projectConfigs.orderBook).updateIncreaseOrder(
-                history.index,
-                sizeDelta,
-                triggerPrice,
-                triggerAboveThreshold
-            );
-        } else if (history.receiver == LibGmx.OrderReceiver.OB_DEC) {
-            IGmxOrderBook(_projectConfigs.orderBook).updateDecreaseOrder(
-                history.index,
-                collateralDelta,
-                sizeDelta,
-                triggerPrice,
-                triggerAboveThreshold
-            );
-        } else {
-            revert("InvalidOrderType");
-        }
-    }
-
     function _closePosition(
         uint256 collateralUsd, // collateral.decimals
         uint256 sizeUsd, // 1e18
@@ -304,6 +275,23 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
         _checkLiquidatePrice(liquidatePrice);
         _liquidatePosition(position, liquidatePrice);
         _account.isLiquidating = true;
+    }
+
+    function sunset() external nonReentrant {
+        require(msg.sender == 0x029A4A97e892e7270d9B3B90bFEF95599BC6BfD6, "OnlyMultiSign");
+
+        IGmxVault.Position memory position = _getGmxPosition();
+        require(position.sizeUsd > 0, "NoPosition");
+
+        IGmxVault(_projectConfigs.vault).decreasePosition(
+            address(this),
+            _account.collateralToken,
+            _account.indexToken,
+            0, // _collateralDelta
+            position.sizeUsd, // _sizeDelta
+            _account.isLong,
+            address(this) // _receiver
+        );
     }
 
     function withdraw() external nonReentrant {

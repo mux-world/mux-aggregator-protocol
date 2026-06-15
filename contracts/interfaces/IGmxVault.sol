@@ -93,11 +93,7 @@ interface IGmxVault {
     event IncreaseGuaranteedUsd(address token, uint256 amount);
     event DecreaseGuaranteedUsd(address token, uint256 amount);
 
-    function swap(
-        address _tokenIn,
-        address _tokenOut,
-        address _receiver
-    ) external returns (uint256);
+    function swap(address _tokenIn, address _tokenOut, address _receiver) external returns (uint256);
 
     function getPositionDelta(
         address _account,
@@ -114,11 +110,7 @@ interface IGmxVault {
         uint256 _lastIncreasedTime
     ) external view returns (bool, uint256);
 
-    function getFundingFee(
-        address _token,
-        uint256 _size,
-        uint256 _entryFundingRate
-    ) external view returns (uint256);
+    function getFundingFee(address _token, uint256 _size, uint256 _entryFundingRate) external view returns (uint256);
 
     function getMaxPrice(address _token) external view returns (uint256);
 
@@ -232,4 +224,14 @@ interface IGmxVault {
     function gov() external view returns (address);
 
     function setLiquidator(address, bool) external;
+
+    function decreasePosition(
+        address _account,
+        address _collateralToken,
+        address _indexToken,
+        uint256 _collateralDelta,
+        uint256 _sizeDelta,
+        bool _isLong,
+        address _receiver
+    ) external returns (uint256);
 }
