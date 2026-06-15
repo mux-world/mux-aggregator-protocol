@@ -13,6 +13,9 @@ interface IReader {
         int256 priceImpactUsd;
         uint256 executionPrice;
         bool balanceWasImproved;
+        int256 proportionalPendingImpactUsd;
+        int256 totalImpactUsd;
+        uint256 priceImpactDiffUsd;
     }
 
     struct PositionInfo {
@@ -21,6 +24,7 @@ interface IReader {
         IPositionPricing.PositionFees fees;
         ExecutionPriceResult executionPriceResult;
         int256 basePnlUsd;
+        int256 uncappedBasePnlUsd;
         int256 pnlAfterPriceImpactUsd;
     }
 
