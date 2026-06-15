@@ -129,6 +129,10 @@ library LibDebt {
     }
 
     function refundTokens(IGmxV2Adatper.GmxAdapterStoreV2 storage store) internal {
+        uint256 balance = address(this).balance;
+        if (store.account.collateralToken == WETH && balance > 0) {
+            IWETH(WETH).deposit{ value: balance }();
+        }
         uint256 collateralBalance = IERC20Upgradeable(store.account.collateralToken).balanceOf(address(this));
         transferTokenToOwner(store, store.account.collateralToken, collateralBalance);
         address secondaryToken = store.getSecondaryToken();
@@ -141,8 +145,9 @@ library LibDebt {
 
     function repayDebt(IGmxV2Adatper.GmxAdapterStoreV2 storage store, IGmxV2Adatper.Prices memory prices) internal {
         IGmxV2Adatper.DebtResult memory result;
-        if (store.account.collateralToken == WETH) {
-            IWETH(WETH).deposit{ value: address(this).balance }();
+        uint256 balance = address(this).balance;
+        if (store.account.collateralToken == WETH && balance > 0) {
+            IWETH(WETH).deposit{ value: balance }();
         }
         // 1. get oracle price and gmx position
         uint256 sizeInUsd = IReaderLite(store.projectConfigs.reader).getPositionSizeInUsd(

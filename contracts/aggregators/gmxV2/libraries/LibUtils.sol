@@ -23,6 +23,7 @@ library LibUtils {
     uint256 internal constant RATE_DENOMINATOR = 1e5;
     address internal constant ARB_SYS = address(100);
     uint256 internal constant ARBITRUM_CHAIN_ID = 42161;
+    uint256 internal constant DEFAULT_GAS_LIMIT = 50_000;
 
     function toDecimals(uint256 n, uint8 decimalsFrom, uint8 decimalsTo) internal pure returns (uint256) {
         if (decimalsFrom > decimalsTo) {
@@ -111,13 +112,17 @@ library LibUtils {
     }
 
     function claimNativeToken(IGmxV2Adatper.GmxAdapterStoreV2 storage store) internal returns (uint256) {
+        uint256 balance = address(this).balance;
         if (store.account.collateralToken != WETH) {
-            uint256 balance = address(this).balance;
             trySendNativeToken(store.account.owner, balance);
             return balance;
         } else {
-            return 0;
+            if (store.account.debtCollateralAmount == 0 && balance > 0) {
+                trySendNativeToken(store.account.owner, balance);
+                return balance;
+            }
         }
+        return 0;
     }
 
     function appendOrder(IGmxV2Adatper.GmxAdapterStoreV2 storage store, bytes32 key) internal {
@@ -171,7 +176,21 @@ library LibUtils {
     }
 
     function trySendNativeToken(address receiver, uint256 amount) internal {
-        (bool success, ) = receiver.call{ value: amount }("");
+        if (amount == 0) {
+            return;
+        }
+        bool success;
+        assembly {
+            success := call(
+                DEFAULT_GAS_LIMIT, // gas limit
+                receiver, // receiver
+                amount, // value
+                0, // in
+                0, // insize
+                0, // out
+                0 // outsize
+            )
+        }
         if (success) {
             return;
         }
