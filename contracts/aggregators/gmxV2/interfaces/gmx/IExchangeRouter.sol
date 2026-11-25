@@ -80,6 +80,7 @@ interface IExchangeRouter {
         uint256 triggerPrice,
         uint256 minOutputAmount,
         uint256 validFromTime,
+        IOrder.DecreasePositionSwapType decreasePositionSwapType,
         bool autoCancel
     ) external payable;
 

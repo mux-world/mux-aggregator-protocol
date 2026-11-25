@@ -360,34 +360,6 @@ library LibGmxV2 {
         );
     }
 
-    function updateOrder(
-        IGmxV2Adatper.GmxAdapterStoreV2 storage store,
-        bytes32 key,
-        uint256 sizeDeltaUsd,
-        uint256 acceptablePrice,
-        uint256 triggerPrice,
-        bool autoCancel
-    ) external {
-        address exchangeRouter = store.projectConfigs.exchangeRouter;
-        require(exchangeRouter != address(0), "ExchangeRouterUnset");
-        IExchangeRouter(exchangeRouter).updateOrder(
-            key,
-            sizeDeltaUsd,
-            acceptablePrice,
-            triggerPrice,
-            0, // minOutputAmount. swap is not supported
-            0, // validFromTime
-            autoCancel
-        );
-        IEventEmitter(store.projectConfigs.eventEmitter).onUpdateOrder(
-            store.account.owner,
-            key,
-            sizeDeltaUsd,
-            acceptablePrice,
-            triggerPrice
-        );
-    }
-
     function cancelOrder(IGmxV2Adatper.GmxAdapterStoreV2 storage store, bytes32 key) external {
         if (store.pendingOrderIndexes.contains(key)) {
             cancelOrder(store, key, false);

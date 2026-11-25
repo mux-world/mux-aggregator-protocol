@@ -87,12 +87,6 @@
     "address": "0x7D7A2137C1FA3C06414aeAFcf9Ca4071Fb407ED6",
     "deployedAt": 392225526
   },
-  "GmxV2Adapter": {
-    "type": "plain",
-    "name": "GmxV2Adapter",
-    "address": "0xF523Cb716b4f280540f631A6855a7Db4Ddd87D73",
-    "deployedAt": 278369389
-  },
   "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx": {
     "type": "plain",
     "name": "contracts/aggregators/gmx/libs/LibGmx.sol:LibGmx",
@@ -104,12 +98,6 @@
     "name": "GmxAdapter",
     "address": "0x908201c86e0E242564B276D9908e195fFac76154",
     "deployedAt": 255402108
-  },
-  "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2": {
-    "type": "plain",
-    "name": "contracts/aggregators/gmxV2/libraries/LibGmxV2.sol:LibGmxV2",
-    "address": "0x75e9350098cb9586baa0FF1833Cf284a5E1819c6",
-    "deployedAt": 278369374
   },
   "ReaderLite": {
     "type": "plain",

@@ -189,13 +189,5 @@ interface IGmxV2Adatper {
 
     function placeOrder(OrderCreateParams memory createParams) external payable returns (bytes32);
 
-    function updateOrder(
-        bytes32 key,
-        uint256 sizeDeltaUsd,
-        uint256 acceptablePrice,
-        uint256 triggerPrice,
-        bool autoCancel
-    ) external;
-
     function cancelOrder(bytes32 key) external;
 }
