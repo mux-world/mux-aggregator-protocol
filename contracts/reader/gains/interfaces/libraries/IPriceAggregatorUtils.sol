@@ -134,19 +134,9 @@ interface IPriceAggregatorUtils is IPriceAggregator {
 
     /**
      * @dev Stores pending order, requests price from oracles, and returns pending order id
-     * @param _collateralIndex collateral index
-     * @param _pairIndex pair index
-     * @param _pendingOrder pending order to store
-     * @param _positionSizeCollateral position size (collateral precision)
-     * @param _fromBlock block number from which to start fetching prices (for lookbacks)
+     * @param _input price request input (see IPriceAggregator)
      */
-    function getPrice(
-        uint8 _collateralIndex,
-        uint16 _pairIndex,
-        ITradingStorage.PendingOrder memory _pendingOrder,
-        uint256 _positionSizeCollateral,
-        uint256 _fromBlock
-    ) external returns (ITradingStorage.Id memory);
+    function getPrice(IPriceAggregator.GetPriceInput memory _input) external returns (ITradingStorage.Id memory);
 
     /**
      * @dev Fulfills price request, called by chainlink oracles
@@ -161,17 +151,34 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     function claimBackLink() external;
 
     /**
+     * @dev Validates signed pair prices, stores them temporarily as well as the corresponding median price for each pair after filtering outliers and the list of corresponding pair indices (for cleanup)
+     * @param _signedPairPrices signed pair market prices (one entry per oracle)
+     * @param _isLookback whether the prices are for a lookback order
+     */
+    function validateSignedPairPrices(
+        IPriceAggregator.SignedPairPrices[] calldata _signedPairPrices,
+        bool _isLookback
+    ) external;
+
+    /**
+     * @dev Cleans up all temporary storage related to signed pair prices
+     */
+    function cleanUpSignedPairPrices() external;
+
+    /**
      * @dev Returns LINK fee for price request
      * @param _collateralIndex collateral index
      * @param _trader trader address
      * @param _pairIndex pair index
      * @param _positionSizeCollateral position size in collateral tokens (collateral precision)
+     * @param _isCounterTrade whether corresponding trade is counter trade
      */
     function getLinkFee(
         uint8 _collateralIndex,
         address _trader,
         uint16 _pairIndex,
-        uint256 _positionSizeCollateral
+        uint256 _positionSizeCollateral,
+        bool _isCounterTrade
     ) external view returns (uint256);
 
     /**
@@ -320,6 +327,27 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     function getMaxLookbackDeviationP() external view returns (uint24);
 
     /**
+     * @dev Returns temporary signed order answers for a pair
+     * @param _pairIndex pair index
+     */
+    function getPairSignedOrderAnswersTemporary(
+        uint16 _pairIndex
+    ) external view returns (IPriceAggregator.OrderAnswer[] memory);
+
+    /**
+     * @dev Returns the median signed answer for a pair based on temporary storage
+     * @param _pairIndex pair index
+     */
+    function getPairSignedMedianTemporary(
+        uint16 _pairIndex
+    ) external view returns (ITradingCallbacks.AggregatorAnswer memory);
+
+    /**
+     * @dev Returns signed pair indices stored temporarily (for cleanup)
+     */
+    function getSignedPairIndicesTemporary() external view returns (uint16[] memory);
+
+    /**
      * @dev Emitted when LINK/USD price feed is updated
      * @param value new value
      */
@@ -391,7 +419,9 @@ interface IPriceAggregatorUtils is IPriceAggregator {
      * @param collateralIndex collateral index
      * @param pairIndex trading pair index
      * @param pendingOrder corresponding pending order
+     * @param positionSizeCollateral position size in collateral tokens (collateral precision)
      * @param fromBlock block number from which to start fetching prices (for lookbacks)
+     * @param isCounterTrade whether corresponding trade is counter trade
      * @param isLookback true if lookback
      * @param job chainlink job id (market/lookback)
      * @param linkFeePerNode link fee distributed per node (1e18 precision)
@@ -401,7 +431,9 @@ interface IPriceAggregatorUtils is IPriceAggregator {
         uint8 indexed collateralIndex,
         uint256 indexed pairIndex,
         ITradingStorage.PendingOrder pendingOrder,
+        uint256 positionSizeCollateral,
         uint256 fromBlock,
+        bool isCounterTrade,
         bool isLookback,
         bytes32 job,
         uint256 linkFeePerNode,
@@ -442,6 +474,24 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     );
 
     /**
+     * @dev Emitted when all signed prices have been processed for a pair
+     * @param pairIndex trading pair index
+     * @param isLookback true if lookback
+     * @param fromBlock corresponding from block (for lookbacks)
+     * @param minFilteredAnswersReached true if min answers reached after filtering the ones above max deviation
+     * @param unfilteredAnswers unfiltered oracle answers (1e10)
+     * @param filteredAnswers filtered oracle answers (1e10)
+     */
+    event SignedPricesReceived(
+        uint16 indexed pairIndex,
+        bool isLookback,
+        uint32 fromBlock,
+        bool minFilteredAnswersReached,
+        IPriceAggregator.OrderAnswer[] unfilteredAnswers,
+        IPriceAggregator.OrderAnswer[] filteredAnswers
+    );
+
+    /**
      * @dev Emitted when LINK tokens are claimed back by gov fund
      * @param amountLink amount of LINK tokens claimed back
      */
@@ -472,4 +522,17 @@ interface IPriceAggregatorUtils is IPriceAggregator {
     error InvalidCandle();
     error WrongCollateralUsdDecimals();
     error InvalidPoolType();
+    error WrongSignaturesCount();
+    error WrongSignerIdOrder();
+    error InvalidExpiryTimestamp();
+    error LookbackMismatch();
+    error FromBlockMismatch();
+    error InvalidSignature();
+    error PairAndCurrentPriceLengthMismatch();
+    error PairLengthMismatchBetweenSigners();
+    error PairIndexMismatchBetweenSigners();
+    error DuplicateOrUnsortedPairIndices();
+    error ExpiryTooFar();
+    error InvalidCurrentPrice();
+    error MinAnswersNotReached();
 }

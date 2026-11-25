@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import "../types/IFundingFees.sol";
+import "../types/IPriceAggregator.sol";
 import "../types/IBorrowingFees.sol";
 
 /**
@@ -18,11 +20,13 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param _collateralIndex index of the collateral
      * @param _pairIndex index of the pair
      * @param _value new value
+     * @param _signedPairPrices signed pair market prices
      */
     function setBorrowingPairParams(
         uint8 _collateralIndex,
         uint16 _pairIndex,
-        BorrowingPairParams calldata _value
+        BorrowingPairParams calldata _value,
+        IPriceAggregator.SignedPairPrices[] calldata _signedPairPrices
     ) external;
 
     /**
@@ -30,11 +34,13 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param _collateralIndex index of the collateral
      * @param _indices indices of the pairs
      * @param _values new values
+     * @param _signedPairPrices signed pair market prices
      */
     function setBorrowingPairParamsArray(
         uint8 _collateralIndex,
         uint16[] calldata _indices,
-        BorrowingPairParams[] calldata _values
+        BorrowingPairParams[] calldata _values,
+        IPriceAggregator.SignedPairPrices[] calldata _signedPairPrices
     ) external;
 
     /**
@@ -80,7 +86,17 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     ) external;
 
     /**
-     * @dev Callback after a trade is opened/closed to store pending borrowing fees and adjust open interests
+     * @dev Callback for borrowing param update
+     * @param _paramUpdate param update details
+     * @param _currentPairPrice current pair price (1e10)
+     */
+    function borrowingParamUpdateCallback(
+        IFundingFees.PendingParamUpdate memory _paramUpdate,
+        uint256 _currentPairPrice
+    ) external;
+
+    /**
+     * @dev Callback after a trade is opened/closed to store pending borrowing fees and update group OI
      * @param _collateralIndex index of the collateral
      * @param _trader address of the trader
      * @param _pairIndex index of the pair
@@ -88,6 +104,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param _positionSizeCollateral position size of the trade in collateral tokens
      * @param _open true if trade has been opened, false if trade has been closed
      * @param _long true if trade is long, false if trade is short
+     * @param _currentPairPrice current pair price (1e10)
      */
     function handleTradeBorrowingCallback(
         uint8 _collateralIndex,
@@ -96,23 +113,24 @@ interface IBorrowingFeesUtils is IBorrowingFees {
         uint32 _index,
         uint256 _positionSizeCollateral,
         bool _open,
-        bool _long
+        bool _long,
+        uint256 _currentPairPrice
     ) external;
 
     /**
-     * @dev Resets a trade borrowing fee to 0 (useful when new trade opened or when partial trade executed)
+     * @dev Updates a pair's open interest (before v10)
      * @param _collateralIndex index of the collateral
-     * @param _trader address of the trader
      * @param _pairIndex index of the pair
-     * @param _index index of the trade
-     * @param _long true if trade is long, false if trade is short
+     * @param _long true if long side
+     * @param _increase true if open interest is increased, false if decreased
+     * @param _amountCollateral change in open interest in collateral tokens (collateral precision)
      */
-    function resetTradeBorrowingFees(
+    function updatePairOiBeforeV10(
         uint8 _collateralIndex,
-        address _trader,
         uint16 _pairIndex,
-        uint32 _index,
-        bool _long
+        bool _long,
+        bool _increase,
+        uint256 _amountCollateral
     ) external;
 
     /**
@@ -120,6 +138,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param _collateralIndex index of the collateral
      * @param _pairIndex index of the pair
      * @param _currentBlock current block number
+     * @param _currentPairPrice current pair price (1e10)
      * @return accFeeLong new pair acc borrowing fee on long side
      * @return accFeeShort new pair acc borrowing fee on short side
      * @return pairAccFeeLongDelta  pair acc borrowing fee delta on long side
@@ -128,7 +147,8 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     function getBorrowingPairPendingAccFees(
         uint8 _collateralIndex,
         uint16 _pairIndex,
-        uint256 _currentBlock
+        uint256 _currentBlock,
+        uint256 _currentPairPrice
     )
         external
         view
@@ -167,13 +187,13 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     function getTradeLiquidationPrice(LiqPriceInput calldata _input) external view returns (uint256);
 
     /**
-     * @dev Returns the open interests for a pair
+     * @dev Returns the open interests for a pair (before v10)
      * @param _collateralIndex index of the collateral
      * @param _pairIndex index of the pair
      * @return longOi open interest on long side
      * @return shortOi open interest on short side
      */
-    function getPairOisCollateral(
+    function getPairOisBeforeV10Collateral(
         uint8 _collateralIndex,
         uint16 _pairIndex
     ) external view returns (uint256 longOi, uint256 shortOi);
@@ -190,12 +210,16 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     ) external view returns (uint16 groupIndex);
 
     /**
-     * @dev Returns the open interest in collateral tokens for a pair on one side
+     * @dev Returns the open interest in collateral tokens for a pair on one side (before v10)
      * @param _collateralIndex index of the collateral
      * @param _pairIndex index of the pair
      * @param _long true if long side
      */
-    function getPairOiCollateral(uint8 _collateralIndex, uint16 _pairIndex, bool _long) external view returns (uint256);
+    function getPairOiBeforeV10Collateral(
+        uint8 _collateralIndex,
+        uint16 _pairIndex,
+        bool _long
+    ) external view returns (uint256);
 
     /**
      * @dev Returns whether a trade is within the max group borrowing open interest
@@ -239,11 +263,14 @@ interface IBorrowingFeesUtils is IBorrowingFees {
     function getBorrowingPair(uint8 _collateralIndex, uint16 _pairIndex) external view returns (BorrowingData memory);
 
     /**
-     * @dev Returns a borrowing pair's oi data
+     * @dev Returns a borrowing pair's oi data (before v10)
      * @param _collateralIndex index of the collateral
      * @param _pairIndex index of the pair
      */
-    function getBorrowingPairOi(uint8 _collateralIndex, uint16 _pairIndex) external view returns (OpenInterest memory);
+    function getBorrowingPairOiBeforeV10(
+        uint8 _collateralIndex,
+        uint16 _pairIndex
+    ) external view returns (OpenInterest memory);
 
     /**
      * @dev Returns a borrowing pair's oi data
@@ -371,9 +398,12 @@ interface IBorrowingFeesUtils is IBorrowingFees {
 
     /**
      * @dev Emitted when a trade's initial acc borrowing fees are stored
+     * @param collateralIndex index of collateral
      * @param trader address of the trader
      * @param pairIndex index of the pair
      * @param index index of the trade
+     * @param long true if trade is long, false if trade is short
+     * @param currentPairPrice current pair price (1e10)
      * @param initialPairAccFee initial pair acc fee (for the side of the trade)
      * @param initialGroupAccFee initial group acc fee (for the side of the trade)
      */
@@ -383,6 +413,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
         uint16 indexed pairIndex,
         uint32 index,
         bool long,
+        uint256 currentPairPrice,
         uint64 initialPairAccFee,
         uint64 initialGroupAccFee
     );
@@ -394,6 +425,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param index index of the trade
      * @param open true if trade has been opened, false if trade has been closed
      * @param long true if trade is long, false if trade is short
+     * @param currentPairPrice current pair price (1e10)
      * @param positionSizeCollateral position size of the trade in collateral tokens
      */
     event TradeBorrowingCallbackHandled(
@@ -403,6 +435,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
         uint32 index,
         bool open,
         bool long,
+        uint256 currentPairPrice,
         uint256 positionSizeCollateral
     );
 
@@ -410,6 +443,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @dev Emitted when a pair's borrowing acc fees are updated
      * @param pairIndex index of the pair
      * @param currentBlock current block number
+     * @param currentPairPrice current pair price (1e10)
      * @param accFeeLong new pair acc borrowing fee on long side
      * @param accFeeShort new pair acc borrowing fee on short side
      */
@@ -417,6 +451,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
         uint8 indexed collateralIndex,
         uint16 indexed pairIndex,
         uint256 currentBlock,
+        uint256 currentPairPrice,
         uint64 accFeeLong,
         uint64 accFeeShort
     );
@@ -445,7 +480,7 @@ interface IBorrowingFeesUtils is IBorrowingFees {
      * @param newOiLong new open interest on long side
      * @param newOiShort new open interest on short side
      */
-    event BorrowingPairOiUpdated(
+    event BorrowingPairOiBeforeV10Updated(
         uint8 indexed collateralIndex,
         uint16 indexed pairIndex,
         bool long,

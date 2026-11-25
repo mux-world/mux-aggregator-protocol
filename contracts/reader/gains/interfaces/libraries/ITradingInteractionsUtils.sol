@@ -3,6 +3,7 @@ pragma solidity 0.8.23;
 
 import "../types/ITradingInteractions.sol";
 import "../types/ITradingStorage.sol";
+import "../types/IPriceAggregator.sol";
 import "../libraries/IUpdateLeverageUtils.sol";
 import "../libraries/IUpdatePositionSizeUtils.sol";
 
@@ -28,6 +29,14 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
      * @param _shouldByPass whether each user should bypass the link cost
      */
     function updateByPassTriggerLink(address[] memory _users, bool[] memory _shouldByPass) external;
+
+    /**
+     * @dev Initiates manual holding fees / negative pnl realization for an open trade (sends negative pnl into vault to avoid temporary imbalances due to timing of trades closing)
+     * @param _trader trader address
+     * @param _index trade index
+     * @param _isHoldingFees true if holding fees realization, false if negative pnl realization
+     */
+    function initiateManualNegativePnlRealization(address _trader, uint32 _index, bool _isHoldingFees) external;
 
     /**
      * @dev Sets _delegate as the new delegate of caller (can call delegatedAction)
@@ -124,6 +133,16 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
     function triggerOrder(uint256 _packed) external;
 
     /**
+     * @dev Triggers an order using signed prices (for tp/sl/liq/limit/stop orders)
+     * @param _packed the packed data of the trigger order (orderType, trader, index)
+     * @param _signedPairPrices the signed lookback pair prices to be used for the trigger order
+     */
+    function triggerOrderWithSignatures(
+        uint256 _packed,
+        IPriceAggregator.SignedPairPrices[] calldata _signedPairPrices
+    ) external;
+
+    /**
      * @dev Safety function in case oracles don't answer in time, allows caller to cancel a pending order and if relevant claim back any stuck collateral
      * @dev Only allowed for MARKET_OPEN, MARKET_CLOSE, UPDATE_LEVERAGE, MARKET_PARTIAL_OPEN, and MARKET_PARTIAL_CLOSE orders
      * @param _orderIndex the id of the pending order to cancel
@@ -191,6 +210,13 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
     ) external;
 
     /**
+     * @dev Initiates pnl withdrawal request for a trade
+     * @param _index index of the trade
+     * @param _amountCollateral amount of pnl to claim in collateral tokens (collateral precision)
+     */
+    function withdrawPositivePnl(uint32 _index, uint120 _amountCollateral) external;
+
+    /**
      * @dev Returns the wrapped native token or address(0) if the current chain, or the wrapped token, is not supported.
      */
     function getWrappedNativeToken() external view returns (address);
@@ -230,6 +256,20 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
      * @param bypass whether the user can bypass the link cost of triggerOrder
      */
     event ByPassTriggerLinkUpdated(address indexed user, bool bypass);
+
+    /**
+     * @dev Emitted when a manual negative pnl realization is initiated
+     * @param orderId order id
+     * @param trader trader address
+     * @param index index of trade
+     * @param isHoldingFeesRealization whether holding fees or negative pnl realization
+     */
+    event ManualNegativePnlRealizationInitiated(
+        ITradingStorage.Id orderId,
+        address indexed trader,
+        uint32 indexed index,
+        bool isHoldingFeesRealization
+    );
 
     /**
      * @dev Emitted when a market order is initiated
@@ -277,6 +317,20 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
     event OpenLimitCanceled(address indexed trader, uint16 indexed pairIndex, uint32 indexed index);
 
     /**
+     * @dev Emitted when a trader initiates a pnl withdrawal request
+     * @param orderId order id
+     * @param trader address of the trader
+     * @param index index of the trade
+     * @param amountCollateral amount of positive pnl to claim in collateral tokens (collateral precision)
+     */
+    event PositivePnlWithdrawalInitiated(
+        ITradingStorage.Id orderId,
+        address indexed trader,
+        uint32 indexed index,
+        uint256 amountCollateral
+    );
+
+    /**
      * @dev Emitted when a trigger order is initiated (tp/sl/liq/limit/stop orders)
      * @param orderId price aggregator order id of the pending trigger order
      * @param trader address of the trader
@@ -312,10 +366,23 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
      */
     event NativeTokenWrapped(address indexed trader, uint256 nativeTokenAmount);
 
+    /**
+     * @dev Emitted when a trade's collateral is returned after timeout
+     * @param pendingOrderId corresponding order id
+     * @param collateralIndex index of collateral
+     * @param trader trader address
+     * @param collateralAmount collateral amount returned (collateral precision)
+     */
+    event CollateralReturnedAfterTimeout(
+        ITradingStorage.Id pendingOrderId,
+        uint8 indexed collateralIndex,
+        address indexed trader,
+        uint256 collateralAmount
+    );
+
     error NotWrappedNativeToken();
     error DelegateNotApproved();
     error PriceZero();
-    error AboveExposureLimits();
     error CollateralNotActive();
     error PriceImpactTooHigh();
     error NoTrade();
@@ -332,4 +399,5 @@ interface ITradingInteractionsUtils is ITradingInteractions, IUpdateLeverageUtil
     error NotYourOrder();
     error DelegatedActionNotAllowed();
     error InsufficientCollateral();
+    error WrongFromBlock();
 }

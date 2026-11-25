@@ -10,14 +10,18 @@ interface IUpdateLeverage {
     struct UpdateLeverageInput {
         address user;
         uint32 index;
-        uint24 newLeverage;
+        uint24 newLeverage; // 1e3
     }
 
     /// @dev Useful values for increase leverage callback
     struct UpdateLeverageValues {
-        uint256 newLeverage;
-        uint256 newCollateralAmount;
-        uint256 liqPrice;
-        uint256 govFeeCollateral;
+        uint256 newLeverage; // 1e3
+        uint256 newCollateralAmount; // collateral precision
+        uint256 existingLiqPrice; // 1e10
+        uint256 newLiqPrice; // 1e10
+        uint256 govFeeCollateral; // collateral precision
+        uint256 newEffectiveLeverage; // 1e3
+        uint256 totalTradeAvailableCollateralInDiamond; // collateral precision
+        uint256 availableCollateralInDiamond; // collateral precision
     }
 }

@@ -36,6 +36,13 @@ interface IPriceImpactUtils is IPriceImpact {
     ) external;
 
     /**
+     * @dev Initializes depth bands mapping for price impact calculation
+     * @param _slot1 slot 1
+     * @param _slot2 slot 2
+     */
+    function initializeDepthBandsMapping(uint256 _slot1, uint256 _slot2) external;
+
+    /**
      * @dev Updates price impact windows count
      * @param _newWindowsCount new windows count
      */
@@ -75,15 +82,35 @@ interface IPriceImpactUtils is IPriceImpact {
     ) external;
 
     /**
-     * @dev Updates pairs 1% depths above and below
-     * @param _indices indices of pairs
-     * @param _depthsAboveUsd depths above the price in USD
-     * @param _depthsBelowUsd depths below the price in USD
+     * @dev Sets encoded depth bands for price impact calculation per trading pair.
+     * See `PairDepthBands` struct for layout.
+     * @param _indices Array of pair indices.
+     * @param _depthBands Array of PairDepthBands structs with above/below slot encoding.
      */
-    function setPairDepths(
+    function setPairDepthBands(
         uint256[] calldata _indices,
-        uint128[] calldata _depthsAboveUsd,
-        uint128[] calldata _depthsBelowUsd
+        IPriceImpact.PairDepthBands[] calldata _depthBands
+    ) external;
+
+    /**
+     * @dev Sets the global depth band offset mapping.
+     * See `DepthBandsMapping` struct for layout.
+     * @param _slot1 Encoded offsets for bands 0–13 (first 32 bits unused).
+     * @param _slot2 Encoded offsets for bands 14–29.
+     */
+    function setDepthBandsMapping(uint256 _slot1, uint256 _slot2) external;
+
+    /**
+     * @dev Updates pairs 1% depths above and below (for skew price impact)
+     * @dev Has to be manually updated from time to time based on desired speed of arbitrage (not too often to not cause imbalances)
+     * @param _collateralIndices indices of collaterals
+     * @param _pairIndices indices of pairs
+     * @param _depths depths in tokens (1e18, 0 = no price impact)
+     */
+    function setPairSkewDepths(
+        uint8[] calldata _collateralIndices,
+        uint16[] calldata _pairIndices,
+        uint256[] calldata _depths
     ) external;
 
     /**
@@ -147,6 +174,24 @@ interface IPriceImpactUtils is IPriceImpact {
     ) external;
 
     /**
+     * @dev Updates pair stored open interest after v10
+     * @param _collateralIndex index of collateral
+     * @param _pairIndex index of pair
+     * @param _oiDeltaCollateral open interest delta in collateral tokens (collateral precision)
+     * @param _oiDeltaToken open interest delta in tokens (1e18)
+     * @param _open whether it corresponds to opening or closing a trade
+     * @param _long true for long, false for short
+     */
+    function updatePairOiAfterV10(
+        uint8 _collateralIndex,
+        uint16 _pairIndex,
+        uint256 _oiDeltaCollateral,
+        uint256 _oiDeltaToken,
+        bool _open,
+        bool _long
+    ) external;
+
+    /**
      * @dev Returns active open interest used in price impact calculation for a pair and side (long/short)
      * @param _pairIndex index of pair
      * @param _long true for long, false for short
@@ -154,34 +199,119 @@ interface IPriceImpactUtils is IPriceImpact {
     function getPriceImpactOi(uint256 _pairIndex, bool _long) external view returns (uint256 activeOi);
 
     /**
-     * @dev Returns price impact % (1e10 precision) and price after impact (1e10 precision) for a trade
+     * @dev Returns cumulative volume price impact % (1e10 precision) for a trade
      * @param _trader trader address (to check if whitelisted from protection close factor)
-     * @param _marketPrice market price (1e10 precision)
      * @param _pairIndex index of pair
      * @param _long true for long, false for short
      * @param _tradeOpenInterestUsd open interest of trade in USD (1e18 precision)
      * @param _isPnlPositive true if positive pnl, false if negative pnl (only relevant when _open = false)
      * @param _open true on open, false on close
      * @param _lastPosIncreaseBlock block when trade position size was last increased (only relevant when _open = false)
-     * @param _contractsVersion trade contracts version
      */
-    function getTradePriceImpact(
+    function getTradeCumulVolPriceImpactP(
         address _trader,
-        uint256 _marketPrice,
-        uint256 _pairIndex,
+        uint16 _pairIndex,
         bool _long,
         uint256 _tradeOpenInterestUsd,
         bool _isPnlPositive,
         bool _open,
-        uint256 _lastPosIncreaseBlock,
-        ITradingStorage.ContractsVersion _contractsVersion
-    ) external view returns (uint256 priceImpactP, uint256 priceAfterImpact);
+        uint256 _lastPosIncreaseBlock
+    ) external view returns (int256 priceImpactP);
 
     /**
-     * @dev Returns a pair's depths above and below the price
+     * @dev Returns skew price impact % (1e10 precision) for a trade
+     * @param _collateralIndex index of collateral
+     * @param _pairIndex index of pair
+     * @param _long true for long, false for short
+     * @param _positionSizeToken open interest of trade in tokens (1e18)
+     * @param _open true on open, false on close
+     */
+    function getTradeSkewPriceImpactP(
+        uint8 _collateralIndex,
+        uint16 _pairIndex,
+        bool _long,
+        uint256 _positionSizeToken,
+        bool _open
+    ) external view returns (int256 priceImpactP);
+
+    /**
+     * @dev Returns the encoded depth bands for a specific pair.
+     * See `PairDepthBands` struct for layout.
+     * @param _pairIndex Pair index.
+     * @return Encoded PairDepthBands struct (above and below).
+     */
+    function getPairDepthBands(uint256 _pairIndex) external view returns (IPriceImpact.PairDepthBands memory);
+
+    /**
+     * @dev Returns encoded depth bands for multiple trading pairs.
+     * See `PairDepthBands` struct for layout.
+     * @param _indices Array of pair indices.
+     * @return Array of PairDepthBands structs.
+     */
+    function getPairDepthBandsArray(
+        uint256[] calldata _indices
+    ) external view returns (IPriceImpact.PairDepthBands[] memory);
+
+    /**
+     * @dev Returns the decoded depth bands for a specific pair.
+     * @param _pairIndex Pair index.
+     * @return totalDepthAboveUsd total depth above in USD (1e18).
+     * @return totalDepthBelowUsd total depth below in USD (1e18).
+     * @return bandsAbove above bands liquidity percentages bps (1e2 %).
+     * @return bandsBelow below bands liquidity percentages bps (1e2 %).
+     */
+    function getPairDepthBandsDecoded(
+        uint256 _pairIndex
+    )
+        external
+        view
+        returns (
+            uint256 totalDepthAboveUsd,
+            uint256 totalDepthBelowUsd,
+            uint16[] memory bandsAbove,
+            uint16[] memory bandsBelow
+        );
+
+    /**
+     * @dev Returns the decoded depth bands for multiple pairs.
+     * @param _indices Array of pair indices.
+     * @return totalDepthAboveUsd Array of total depth above in USD (1e18).
+     * @return totalDepthBelowUsd Array of total depth below in USD (1e18).
+     * @return bandsAbove Array of above bands liquidity percentages bps (1e2 %).
+     * @return bandsBelow Array of below bands liquidity percentages bps (1e2 %).
+     */
+    function getPairDepthBandsDecodedArray(
+        uint256[] calldata _indices
+    )
+        external
+        view
+        returns (
+            uint256[] memory totalDepthAboveUsd,
+            uint256[] memory totalDepthBelowUsd,
+            uint16[][] memory bandsAbove,
+            uint16[][] memory bandsBelow
+        );
+
+    /**
+     * @dev Returns the global depth band offset mapping.
+     * See `DepthBandsMapping` struct for layout.
+     * @return slot1 Encoded offsets for bands 0–13 (first 32 bits unused).
+     * @return slot2 Encoded offsets for bands 14–29.
+     */
+    function getDepthBandsMapping() external view returns (uint256 slot1, uint256 slot2);
+
+    /**
+     * @dev Returns the decoded global depth band offset mapping.
+     * @return bands Array of offsets in parts per million (1e4 %).
+     */
+    function getDepthBandsMappingDecoded() external view returns (uint16[] memory bands);
+
+    /**
+     * @dev Returns a pair's depths above and below the price (for skew price impact)
+     * @param _collateralIndex index of collateral
      * @param _pairIndex index of pair
      */
-    function getPairDepth(uint256 _pairIndex) external view returns (PairDepth memory);
+    function getPairSkewDepth(uint8 _collateralIndex, uint16 _pairIndex) external view returns (uint256);
 
     /**
      * @dev Returns current price impact windows settings
@@ -213,10 +343,14 @@ interface IPriceImpactUtils is IPriceImpact {
     ) external view returns (PairOi[] memory);
 
     /**
-     * @dev Returns depths above and below the price for multiple pairs
-     * @param _indices indices of pairs
+     * @dev Returns depths above and below the price for multiple pairs for skew price impact (tokens, 1e18)
+     * @param _collateralIndices indices of collaterals
+     * @param _pairIndices indices of pairs
      */
-    function getPairDepths(uint256[] calldata _indices) external view returns (PairDepth[] memory);
+    function getPairSkewDepths(
+        uint8[] calldata _collateralIndices,
+        uint16[] calldata _pairIndices
+    ) external view returns (uint256[] memory);
 
     /**
      * @dev Returns factors for a set of pairs (1e10)
@@ -231,16 +365,59 @@ interface IPriceImpactUtils is IPriceImpact {
 
     /**
      * @dev Returns whether a trader is whitelisted from protection close factor
+     * @param _trader trader address
      */
     function getProtectionCloseFactorWhitelist(address _trader) external view returns (bool);
 
     /**
      * @dev Returns a trader's price impact settings on a particular pair
+     * @param _trader trader address
+     * @param _pairIndex pair index
      */
     function getUserPriceImpact(
         address _trader,
         uint256 _pairIndex
     ) external view returns (IPriceImpact.UserPriceImpact memory);
+
+    /**
+     * @dev Returns a pair's open interest in collateral tokens after v10 (collateral precision)
+     * @param _collateralIndex collateral index
+     * @param _pairIndex pair index
+     */
+    function getPairOiAfterV10Collateral(
+        uint8 _collateralIndex,
+        uint16 _pairIndex
+    ) external view returns (IPriceImpact.PairOiCollateral memory);
+
+    /**
+     * @dev Returns multiple pairs' open interests in collateral tokens after v10 (collateral precision)
+     * @param _collateralIndex collateral indices
+     * @param _pairIndex pair indices
+     */
+    function getPairOisAfterV10Collateral(
+        uint8[] memory _collateralIndex,
+        uint16[] memory _pairIndex
+    ) external view returns (IPriceImpact.PairOiCollateral[] memory);
+
+    /**
+     * @dev Returns a pair's open interest in tokens after v10 (1e18)
+     * @param _collateralIndex collateral index
+     * @param _pairIndex pair index
+     */
+    function getPairOiAfterV10Token(
+        uint8 _collateralIndex,
+        uint16 _pairIndex
+    ) external view returns (IPriceImpact.PairOiToken memory);
+
+    /**
+     * @dev Returns multiple pairs' open interests in tokens after v10 (collateral precision)
+     * @param _collateralIndex collateral indices
+     * @param _pairIndex pair indices
+     */
+    function getPairOisAfterV10Token(
+        uint8[] memory _collateralIndex,
+        uint16[] memory _pairIndex
+    ) external view returns (IPriceImpact.PairOiToken[] memory);
 
     /**
      * @dev Triggered when OiWindowsSettings is initialized (once)
@@ -330,6 +507,28 @@ interface IPriceImpactUtils is IPriceImpact {
     event PriceImpactOpenInterestAdded(IPriceImpact.OiWindowUpdate oiWindowUpdate);
 
     /**
+     * @dev Triggered when a pair's OI after v10 is updated.
+     * @param collateralIndex index of collateral
+     * @param pairIndex index of pair
+     * @param oiDeltaCollateral open interest delta in collateral tokens (collateral precision)
+     * @param oiDeltaToken open interest delta in tokens (1e18)
+     * @param open whether it corresponds to opening or closing a trade
+     * @param long true for long, false for short
+     * @param newOiCollateral new OI collateral after v10 (collateral precision)
+     * @param newOiToken new OI token after v10 (1e18)
+     */
+    event PairOiAfterV10Updated(
+        uint8 indexed collateralIndex,
+        uint16 indexed pairIndex,
+        uint256 oiDeltaCollateral,
+        uint256 oiDeltaToken,
+        bool open,
+        bool long,
+        IPriceImpact.PairOiCollateral newOiCollateral,
+        IPriceImpact.PairOiToken newOiToken
+    );
+
+    /**
      * @dev Triggered when multiple pairs' OI are transferred to a new window (when updating windows duration).
      * @param pairsCount number of pairs
      * @param prevCurrentWindowId previous current window ID corresponding to previous window duration
@@ -351,13 +550,46 @@ interface IPriceImpactUtils is IPriceImpact {
     event PriceImpactOiTransferredPair(uint256 indexed pairIndex, IPriceImpact.PairOi totalPairOi);
 
     /**
-     * @dev Triggered when a pair's depth is updated.
+     * @dev Triggered when a pair's 1% depth is updated (for cumulative volume price impact).
      * @param pairIndex index of the pair
      * @param valueAboveUsd new USD depth above the price
      * @param valueBelowUsd new USD depth below the price
      */
     event OnePercentDepthUpdated(uint256 indexed pairIndex, uint128 valueAboveUsd, uint128 valueBelowUsd);
 
+    /**
+     * @dev Triggered when a pair's 1% depth is updated (for skew price impact).
+     * @param pairIndex index of the pair
+     * @param newValue new depth above/below the price (1e18, token)
+     */
+    event OnePercentSkewDepthUpdated(uint8 indexed collateralIndex, uint16 indexed pairIndex, uint256 newValue);
+
+    /**
+     * @dev Triggered when a pair's depth bands are updated.
+     * @param pairIndex index of the pair
+     * @param aboveSlot1 first slot for above bands (totalDepthUsd + 14 bands)
+     * @param aboveSlot2 second slot for above bands (16 bands)
+     * @param belowSlot1 first slot for below bands (totalDepthUsd + 14 bands)
+     * @param belowSlot2 second slot for below bands (16 bands)
+     */
+    event PairDepthBandsUpdated(
+        uint256 indexed pairIndex,
+        uint256 aboveSlot1,
+        uint256 aboveSlot2,
+        uint256 belowSlot1,
+        uint256 belowSlot2
+    );
+
+    /**
+     * @dev Emitted when depth bands mapping is updated
+     * @param slot1 Slot 1 data containing the first 14 bands offsets
+     * @param slot2 Slot 2 data containing the last 16 bands offsets
+     */
+    event DepthBandsMappingUpdated(uint256 slot1, uint256 slot2);
+
     error WrongWindowsDuration();
     error WrongWindowsCount();
+    error WrongDepthBandsOrder();
+    error DepthBandsAboveMax();
+    error DepthBandsIncomplete();
 }

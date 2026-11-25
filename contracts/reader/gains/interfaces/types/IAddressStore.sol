@@ -9,7 +9,8 @@ interface IAddressStore {
         GOV_TIMELOCK,
         GOV,
         MANAGER,
-        GOV_EMERGENCY
+        GOV_EMERGENCY,
+        GOV_EMERGENCY_TIMELOCK
     }
 
     struct Addresses {

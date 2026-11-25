@@ -15,6 +15,7 @@ import "./libraries/IPriceAggregatorUtils.sol";
 import "./libraries/IOtcUtils.sol";
 import "./IMulticall.sol";
 import "./libraries/IChainConfigUtils.sol";
+import "./libraries/IFundingFeesUtils.sol";
 
 /**
  * @dev Expanded version of multi-collat diamond that includes events and function signatures
@@ -35,7 +36,6 @@ interface IGNSMultiCollatDiamond is
     IPriceAggregatorUtils,
     IOtcUtils,
     IMulticall,
-    IChainConfigUtils
-{
-
-}
+    IChainConfigUtils,
+    IFundingFeesUtils
+{}

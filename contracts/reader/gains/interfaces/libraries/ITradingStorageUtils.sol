@@ -52,8 +52,13 @@ interface ITradingStorageUtils is ITradingStorage {
      * @dev Stores a new trade (trade/limit/stop)
      * @param _trade trade to be stored
      * @param _tradeInfo trade info to be stored
+     * @param _currentPairPrice the current pair price (1e10)
      */
-    function storeTrade(Trade memory _trade, TradeInfo memory _tradeInfo) external returns (Trade memory);
+    function storeTrade(
+        Trade memory _trade,
+        TradeInfo memory _tradeInfo,
+        uint64 _currentPairPrice
+    ) external returns (Trade memory);
 
     /**
      * @dev Updates an existing trade max closing slippage %
@@ -66,25 +71,22 @@ interface ITradingStorageUtils is ITradingStorage {
      * @dev Updates an open trade collateral
      * @param _tradeId id of updated trade
      * @param _collateralAmount new collateral amount value (collateral precision)
-     */
-    function updateTradeCollateralAmount(Id memory _tradeId, uint120 _collateralAmount) external;
-
-    /**
-     * @dev Updates an open trade collateral
-     * @param _tradeId id of updated trade
-     * @param _collateralAmount new collateral amount value (collateral precision)
      * @param _leverage new leverage value
      * @param _openPrice new open price value
-     * @param _isPartialIncrease refreshes trade liquidation params if true
+     * @param _pendingOrderType corresponding pending order type (ignore dust OI delta for leverage updates, refresh trade liq params for partial adds)
+     * @param _positionSizeTokenDelta position size token delta (1e18)
      * @param _isPnlPositive whether the pnl is positive (only relevant when closing)
+     * @param _currentPairPrice the current pair price (1e10)
      */
     function updateTradePosition(
         Id memory _tradeId,
         uint120 _collateralAmount,
         uint24 _leverage,
         uint64 _openPrice,
-        bool _isPartialIncrease,
-        bool _isPnlPositive
+        ITradingStorage.PendingOrderType _pendingOrderType,
+        uint256 _positionSizeTokenDelta,
+        bool _isPnlPositive,
+        uint64 _currentPairPrice
     ) external;
 
     /**
@@ -121,8 +123,9 @@ interface ITradingStorageUtils is ITradingStorage {
      * @dev Marks an open trade/limit/stop as closed
      * @param _tradeId the trade id
      * @param _isPnlPositive whether the pnl is positive
+     * @param _currentPairPrice the current pair price (1e10)
      */
-    function closeTrade(Id memory _tradeId, bool _isPnlPositive) external;
+    function closeTrade(Id memory _tradeId, bool _isPnlPositive, uint64 _currentPairPrice) external;
 
     /**
      * @dev Stores a new pending order
@@ -135,6 +138,13 @@ interface ITradingStorageUtils is ITradingStorage {
      * @param _orderId the id of the pending order to be closed
      */
     function closePendingOrder(Id memory _orderId) external;
+
+    /**
+     * @dev Validates an open trade order (for all order types apart from MARKET_OPEN)
+     * @param _trade the trade to validate
+     * @param _orderType the pending order type to validate
+     */
+    function validateOpenTradeOrder(Trade memory _trade, PendingOrderType _orderType) external view;
 
     /**
      * @dev Returns collateral data by index
@@ -376,7 +386,29 @@ interface ITradingStorageUtils is ITradingStorage {
     /**
      * @dev Returns the current contracts version
      */
-    function getCurrentContractsVersion() external pure returns (ITradingStorage.ContractsVersion);
+    function getCurrentContractsVersion() external view returns (ITradingStorage.ContractsVersion);
+
+    /**
+     * @dev Returns the contracts version for a trade
+     * @param _trader address of the trader
+     * @param _index index of the trade
+     */
+    function getTradeContractsVersion(
+        address _trader,
+        uint32 _index
+    ) external view returns (ITradingStorage.ContractsVersion);
+
+    /**
+     * @dev Returns the corresponding lookback fromBlock for a trigger
+     * @param _trader address of the trader
+     * @param _index index of the trade
+     * @param _orderType trigger order type
+     */
+    function getLookbackFromBlock(
+        address _trader,
+        uint32 _index,
+        ITradingStorage.PendingOrderType _orderType
+    ) external view returns (uint32);
 
     /**
      * @dev Emitted when the trading activated state is updated
@@ -450,11 +482,11 @@ interface ITradingStorageUtils is ITradingStorage {
      * @param user trade user
      * @param index trade index
      * @param collateralAmount new collateral value (collateral precision)
-     * @param leverage new leverage value if present
-     * @param openPrice new open price value if present
-     * @param newTp new tp price (1e10)
+     * @param leverage new leverage value (1e3)
+     * @param openPrice new open price value (1e10)
      * @param newSl new sl price (1e10)
-     * @param isPartialIncrease true if trade liquidation params were refreshed
+     * @param newPositionSizeToken new position size in token amount (1e18)
+     * @param pendingOrderType corresponding pending order type
      * @param isPnlPositive true if trade pnl is positive (only relevant when closing)
      */
     event TradePositionUpdated(
@@ -463,9 +495,9 @@ interface ITradingStorageUtils is ITradingStorage {
         uint120 collateralAmount,
         uint24 leverage,
         uint64 openPrice,
-        uint64 newTp,
         uint64 newSl,
-        bool isPartialIncrease,
+        uint160 newPositionSizeToken,
+        ITradingStorage.PendingOrderType pendingOrderType,
         bool isPnlPositive
     );
 

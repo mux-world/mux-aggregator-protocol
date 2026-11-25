@@ -90,6 +90,20 @@ interface IPairsStorageUtils is IPairsStorage {
     function setGlobalTradeFeeParams(IPairsStorage.GlobalTradeFeeParams memory _feeParams) external;
 
     /**
+     * @dev Updates pairs counter trade max leverage
+     * @param _indices indices of pairs
+     * @param _values new max leverages (1e3), 0 disables counter trades for the pair
+     */
+    function setPairCounterTradeMaxLeverages(uint16[] calldata _indices, uint24[] calldata _values) external;
+
+    /**
+     * @dev Updates counter trade fee rate multiplier
+     * @param _indices indices of pairs
+     * @param _values new multipliers (1e3), 1e3 disables counter trade discount
+     */
+    function setPairCounterTradeFeeRateMultipliers(uint16[] calldata _indices, uint16[] calldata _values) external;
+
+    /**
      * @dev Returns data needed by price aggregator when doing a new price request
      * @param _pairIndex index of pair
      * @return from pair from (eg. BTC)
@@ -233,6 +247,39 @@ interface IPairsStorageUtils is IPairsStorage {
     ) external view returns (IPairsStorage.GroupLiquidationParams memory);
 
     /**
+     * @dev Returns a pair's counter trade max leverage (1e3)
+     * @param _pairIndex index of pair
+     */
+    function getPairCounterTradeMaxLeverage(uint16 _pairIndex) external view returns (uint24);
+
+    /**
+     * @dev Returns multiple pairs counter trade max leverage (1e3)
+     * @param _pairIndex indices of pairs
+     */
+    function getPairCounterTradeMaxLeverages(uint16[] calldata _pairIndex) external view returns (uint24[] memory);
+
+    /**
+     * @dev Returns a pair's counter trade fee rate multiplier (1e3)
+     * @param _pairIndex index of pair
+     */
+    function getPairCounterTradeFeeRateMultiplier(uint16 _pairIndex) external view returns (uint16);
+
+    /**
+     * @dev Returns multiple pairs counter trade fee rate multipliers (1e3)
+     * @param _pairIndex indices of pairs
+     */
+    function getPairCounterTradeFeeRateMultipliers(
+        uint16[] calldata _pairIndex
+    ) external view returns (uint16[] memory);
+
+    /**
+     * @dev Returns the effective total position size fee % (1e10 precision) after counter trade multiplier where applicable
+     * @param _pairIndex index of pair
+     * @param _isCounterTrade whether the trade is a counter trade
+     */
+    function getEffectiveTotalPositionSizeFeeP(uint16 _pairIndex, bool _isCounterTrade) external view returns (uint256);
+
+    /**
      * @dev Emitted when a new pair is listed
      * @param index index of pair
      * @param from pair from (eg. BTC)
@@ -292,6 +339,19 @@ interface IPairsStorageUtils is IPairsStorage {
      * @param feeParams new fee params
      */
     event GlobalTradeFeeParamsUpdated(IPairsStorage.GlobalTradeFeeParams feeParams);
+
+    /**
+     * @dev Emitted when a pair's counter trade max leverage is updated
+     * @param pairIndex index of pair
+     * @param newValue new max leverage (1e3)
+     */
+    event CounterTradeMaxLeverageUpdated(uint16 indexed pairIndex, uint24 newValue);
+
+    /**
+     * @dev Emitted when counter trade fee rate multiplier is updated
+     * @param newValue new multiplier (1e3)
+     */
+    event CounterTradeFeeRateMultiplierUpdated(uint16 indexed pairIndex, uint16 newValue);
 
     error PairNotListed();
     error GroupNotListed();

@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import "../types/ITradingStorage.sol";
+import "../libraries/ITradingCommonUtils.sol";
 
 /**
  * @dev Contains the types for the GNSTradingCallbacks facet
@@ -25,31 +26,49 @@ interface ITradingCallbacks {
         PRICE_IMPACT,
         MAX_LEVERAGE,
         NO_TRADE,
-        WRONG_TRADE, // deprecated
+        WRONG_TRADE,
         NOT_HIT,
-        LIQ_REACHED
+        LIQ_REACHED,
+        COUNTER_TRADE_CANCELED
     }
 
     struct AggregatorAnswer {
         ITradingStorage.Id orderId;
-        uint256 spreadP;
-        uint64 price;
         uint64 open;
         uint64 high;
         uint64 low;
+        uint64 current;
     }
 
     // Useful to avoid stack too deep errors
     struct Values {
         int256 profitP;
         uint256 executionPrice;
+        uint256 executionPriceRaw;
         uint256 liqPrice;
         uint256 amountSentToTrader;
         uint256 collateralPriceUsd;
         bool exactExecution;
-        uint256 collateralLeftInStorage;
-        uint256 oraclePrice;
         uint32 limitIndex;
-        uint256 priceImpactP;
+        ITradingCommonUtils.TradePriceImpact priceImpact;
+        CancelReason cancelReason;
+        uint256 collateralToReturn;
+        uint120 newCollateralAmount;
+        uint256 newEffectiveLeverage;
+        uint256 pnlWithdrawnCollateral;
+        uint256 openingFeeCollateral;
+    }
+
+    struct PnlWithdrawalValues {
+        ITradingStorage.Trade trade;
+        uint64 currentPairPrice;
+        uint256 positionSizeCollateral;
+        ITradingCommonUtils.TradePriceImpact priceImpact;
+        int256 pnlPercent;
+        int256 withdrawablePositivePnlCollateral;
+        uint256 pnlInputCollateral;
+        uint256 pnlWithdrawnCollateral;
+        uint256 withdrawablePositivePnlCollateralUint;
+        uint256 finalGovFeeCollateral;
     }
 }

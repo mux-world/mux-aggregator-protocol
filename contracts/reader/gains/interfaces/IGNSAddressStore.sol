@@ -15,6 +15,12 @@ interface IGNSAddressStore is IAddressStore, IGeneralErrors {
     function initialize(address _rolesManager) external;
 
     /**
+     * @dev Initializes gov emergency timelock role
+     * @param _govEmergencyTimelock address to be granted emergency timelock role
+     */
+    function initializeGovEmergencyTimelock(address _govEmergencyTimelock) external;
+
+    /**
      * @dev Returns addresses current values
      */
     function getAddresses() external view returns (Addresses memory);

@@ -10,7 +10,7 @@ interface IBorrowingFees {
     struct BorrowingFeesStorage {
         mapping(uint8 => mapping(uint16 => BorrowingData)) pairs;
         mapping(uint8 => mapping(uint16 => BorrowingPairGroup[])) pairGroups;
-        mapping(uint8 => mapping(uint16 => OpenInterest)) pairOis;
+        mapping(uint8 => mapping(uint16 => OpenInterest)) pairOisBeforeV10;
         mapping(uint8 => mapping(uint16 => BorrowingData)) groups;
         mapping(uint8 => mapping(uint16 => OpenInterest)) groupOis;
         mapping(uint8 => mapping(address => mapping(uint32 => BorrowingInitialAccFees))) initialAccFees;
@@ -79,6 +79,7 @@ interface IBorrowingFees {
         bool long;
         uint256 collateral; // 1e18 | 1e6 (collateral)
         uint256 leverage; // 1e3
+        uint256 currentPairPrice; // 1e10
     }
 
     struct LiqPriceInput {
@@ -90,8 +91,12 @@ interface IBorrowingFees {
         bool long;
         uint256 collateral; // 1e18 | 1e6 (collateral)
         uint256 leverage; // 1e3
-        bool useBorrowingFees;
+        int256 additionalFeeCollateral; // 1e18 | 1e6 (collateral)
         IPairsStorage.GroupLiquidationParams liquidationParams;
+        uint64 currentPairPrice; // 1e10
+        bool isCounterTrade;
+        uint256 partialCloseMultiplier; // 1e18
+        bool beforeOpened;
     }
 
     struct PendingBorrowingAccFeesInput {
@@ -117,5 +122,11 @@ interface IBorrowingFees {
         uint256 minNetOi; // 1e18 | 1e6
         uint256 maxNetOi; // 1e18 | 1e6
         uint256 cappedNetOi; // 1e18 | 1e6
+    }
+
+    struct GetTradeBorrowingFeeValues {
+        BorrowingInitialAccFees initialFees;
+        BorrowingPairGroup firstPairGroup;
+        uint256 borrowingFeeP; // 1e10 (%)
     }
 }

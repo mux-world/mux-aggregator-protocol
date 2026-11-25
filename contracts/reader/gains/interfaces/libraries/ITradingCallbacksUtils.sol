@@ -63,10 +63,38 @@ interface ITradingCallbacksUtils is
     function executeTriggerOpenOrderCallback(AggregatorAnswer memory _a) external;
 
     /**
+     * @dev Executes open trigger directly (for limit/stop orders)
+     * @param _a the price aggregator answer (order id, price, etc.)
+     * @param _trade the trade object to execute the trigger for
+     * @param _orderType the pending order type
+     * @param _initiator the address that initiated the trigger execution
+     */
+    function executeTriggerOpenOrderCallbackDirect(
+        ITradingCallbacks.AggregatorAnswer memory _a,
+        ITradingStorage.Trade memory _trade,
+        ITradingStorage.PendingOrderType _orderType,
+        address _initiator
+    ) external;
+
+    /**
      * @dev Executes a pending close trigger order (for tp/sl/liq orders)
      * @param _a the price aggregator answer (order id, price, etc.)
      */
     function executeTriggerCloseOrderCallback(AggregatorAnswer memory _a) external;
+
+    /**
+     * @dev Executes close trigger directly (for tp/sl/liq orders)
+     * @param _a the price aggregator answer (order id, price, etc.)
+     * @param _trade the trade object to execute the trigger for
+     * @param _orderType the pending order type
+     * @param _initiator the address that initiated the trigger execution
+     */
+    function executeTriggerCloseOrderCallbackDirect(
+        ITradingCallbacks.AggregatorAnswer memory _a,
+        ITradingStorage.Trade memory _trade,
+        ITradingStorage.PendingOrderType _orderType,
+        address _initiator
+    ) external;
 
     /**
      * @dev Executes a pending update leverage order
@@ -87,6 +115,24 @@ interface ITradingCallbacksUtils is
     function decreasePositionSizeMarketCallback(AggregatorAnswer memory _a) external;
 
     /**
+     * @dev Executes a pending pnl withdrawal
+     * @param _a the price aggregator answer (order id, price, etc.)
+     */
+    function pnlWithdrawalCallback(AggregatorAnswer memory _a) external;
+
+    /**
+     * @dev Executes a pending holding fees realization
+     * @param _a the price aggregator answer (order id, price, etc.)
+     */
+    function manualHoldingFeesRealizationCallback(AggregatorAnswer memory _a) external;
+
+    /**
+     * @dev Executes a pending negative pnl realization
+     * @param _a the price aggregator answer (order id, price, etc.)
+     */
+    function manualNegativePnlRealizationCallback(AggregatorAnswer memory _a) external;
+
+    /**
      * @dev Returns the current vaultClosingFeeP value (%)
      */
     function getVaultClosingFeeP() external view returns (uint8);
@@ -100,47 +146,37 @@ interface ITradingCallbacksUtils is
      * @dev Makes open trigger (STOP/LIMIT) checks like slippage, price impact, missed targets and returns cancellation reason if any
      * @param _tradeId the id of the trade
      * @param _orderType the pending order type
-     * @param _open the `open` value from an aggregator answer
-     * @param _high the `high` value from an aggregator answer
-     * @param _low the `low` value from an aggregator answer
+     * @param _open the open value of the candle to check (1e10)
+     * @param _high the high value of the candle to check (1e10)
+     * @param _low the low value of the candle to check (1e10)
+     * @param _currentPairPrice the current pair price (1e10)
      */
     function validateTriggerOpenOrderCallback(
         ITradingStorage.Id memory _tradeId,
         ITradingStorage.PendingOrderType _orderType,
         uint64 _open,
         uint64 _high,
-        uint64 _low
-    )
-        external
-        view
-        returns (
-            ITradingStorage.Trade memory t,
-            ITradingCallbacks.CancelReason cancelReason,
-            ITradingCallbacks.Values memory v
-        );
+        uint64 _low,
+        uint64 _currentPairPrice
+    ) external view returns (ITradingStorage.Trade memory t, ITradingCallbacks.Values memory v);
 
     /**
      * @dev Makes close trigger (SL/TP/LIQ) checks like slippage and price impact and returns cancellation reason if any
      * @param _tradeId the id of the trade
      * @param _orderType the pending order type
-     * @param _open the `open` value from an aggregator answer
-     * @param _high the `high` value from an aggregator answer
-     * @param _low the `low` value from an aggregator answer
+     * @param _open the open value of the candle to check (1e10)
+     * @param _high the high value of the candle to check (1e10)
+     * @param _low the low value of the candle to check (1e10)
+     * @param _currentPairPrice the current pair price (1e10)
      */
     function validateTriggerCloseOrderCallback(
         ITradingStorage.Id memory _tradeId,
         ITradingStorage.PendingOrderType _orderType,
         uint64 _open,
         uint64 _high,
-        uint64 _low
-    )
-        external
-        view
-        returns (
-            ITradingStorage.Trade memory t,
-            ITradingCallbacks.CancelReason cancelReason,
-            ITradingCallbacks.Values memory v
-        );
+        uint64 _low,
+        uint64 _currentPairPrice
+    ) external view returns (ITradingStorage.Trade memory t, ITradingCallbacks.Values memory v);
 
     /**
      * @dev Emitted when vaultClosingFeeP is updated
@@ -165,7 +201,7 @@ interface ITradingCallbacksUtils is
      * @param oraclePrice the oracle price without spread/impact (1e10 precision)
      * @param marketPrice the price at which the trade was executed (1e10 precision)
      * @param liqPrice trade liquidation price (1e10 precision)
-     * @param priceImpactP the price impact in percentage (1e10 precision)
+     * @param priceImpact price impact details
      * @param percentProfit the profit in percentage (1e10 precision)
      * @param amountSentToTrader the final amount of collateral sent to the trader
      * @param collateralPriceUsd the price of the collateral in USD (1e8 precision)
@@ -179,7 +215,7 @@ interface ITradingCallbacksUtils is
         uint256 oraclePrice,
         uint256 marketPrice,
         uint256 liqPrice,
-        uint256 priceImpactP,
+        ITradingCommonUtils.TradePriceImpact priceImpact,
         int256 percentProfit, // before fees
         uint256 amountSentToTrader,
         uint256 collateralPriceUsd // 1e8
@@ -197,7 +233,7 @@ interface ITradingCallbacksUtils is
      * @param oraclePrice the oracle price without spread/impact (1e10 precision)
      * @param marketPrice the price at which the trade was executed (1e10 precision)
      * @param liqPrice trade liquidation price (1e10 precision)
-     * @param priceImpactP the price impact in percentage (1e10 precision)
+     * @param priceImpact price impact details
      * @param percentProfit the profit in percentage (1e10 precision)
      * @param amountSentToTrader the final amount of collateral sent to the trader
      * @param collateralPriceUsd the price of the collateral in USD (1e8 precision)
@@ -214,7 +250,7 @@ interface ITradingCallbacksUtils is
         uint256 oraclePrice,
         uint256 marketPrice,
         uint256 liqPrice,
-        uint256 priceImpactP,
+        ITradingCommonUtils.TradePriceImpact priceImpact,
         int256 percentProfit,
         uint256 amountSentToTrader,
         uint256 collateralPriceUsd, // 1e8
@@ -227,12 +263,14 @@ interface ITradingCallbacksUtils is
      * @param trader address of the trader
      * @param pairIndex index of the trading pair
      * @param cancelReason reason for the cancellation
+     * @param collateralReturned collateral returned to trader (collateral precision)
      */
     event MarketOpenCanceled(
         ITradingStorage.Id orderId,
         address indexed trader,
         uint256 indexed pairIndex,
-        CancelReason cancelReason
+        CancelReason cancelReason,
+        uint256 collateralReturned
     );
 
     /**
@@ -266,16 +304,82 @@ interface ITradingCallbacksUtils is
     );
 
     /**
-     *
+     * @dev Emitted when a trade's holding fees are manually realized
+     * @param orderId corresponding order id
+     * @param collateralIndex collateral index
      * @param trader address of the trader
      * @param index index of the trade
-     * @param collateralIndex index of the collateral
-     * @param amountCollateral amount charged (collateral precision)
+     * @param currentPairPrice current pair price (1e10 precision)
      */
-    event BorrowingFeeCharged(
+    event TradeHoldingFeesManuallyRealized(
+        ITradingStorage.Id orderId,
+        uint8 indexed collateralIndex,
         address indexed trader,
         uint32 indexed index,
-        uint8 indexed collateralIndex,
-        uint256 amountCollateral
+        uint256 currentPairPrice
     );
+
+    /**
+     * @dev Emitted when positive pnl is claimed on an open trade
+     * @param orderId corresponding order id
+     * @param collateralIndex collateral index
+     * @param trader address of the trader
+     * @param index index of the trade
+     * @param priceImpact closing price impact details
+     * @param pnlPercent raw trade pnl percent (1e10 precision)
+     * @param withdrawablePositivePnlCollateral maximum withdrawable positive pnl in collateral tokens (collateral precision)
+     * @param currentPairPrice current pair price (1e10 precision)
+     * @param pnlInputCollateral input for amount of positive pnl to withdraw (collateral precision)
+     * @param pnlWithdrawnCollateral final positive pnl withdrawn in collateral tokens (collateral precision)
+     */
+    event TradePositivePnlWithdrawn(
+        ITradingStorage.Id orderId,
+        uint8 indexed collateralIndex,
+        address indexed trader,
+        uint32 indexed index,
+        ITradingCommonUtils.TradePriceImpact priceImpact,
+        int256 pnlPercent,
+        int256 withdrawablePositivePnlCollateral,
+        uint256 currentPairPrice,
+        uint256 pnlInputCollateral,
+        uint256 pnlWithdrawnCollateral
+    );
+
+    /**
+     * @dev Emitted when a trade's negative pnl is manually realized
+     * @param orderId corresponding order id
+     * @param collateralIndex collateral index
+     * @param trader address of the trader
+     * @param index index of the trade
+     * @param negativePnlCollateral current negative pnl in collateral tokens (collateral precision)
+     * @param existingManuallyRealizedNegativePnlCollateral existing manually realized negative pnl in collateral tokens (collateral precision)
+     * @param newManuallyRealizedNegativePnlCollateral new manually realized negative pnl in collateral tokens (collateral precision)
+     * @param currentPairPrice current pair price (1e10 precision)
+     */
+    event TradeNegativePnlManuallyRealized(
+        ITradingStorage.Id orderId,
+        uint8 indexed collateralIndex,
+        address indexed trader,
+        uint32 indexed index,
+        uint256 negativePnlCollateral,
+        uint256 existingManuallyRealizedNegativePnlCollateral,
+        uint256 newManuallyRealizedNegativePnlCollateral,
+        uint256 currentPairPrice
+    );
+
+    /**
+     * @dev Emitted when excess counter trade collateral is returned to trader
+     * @param orderId corresponding order id
+     * @param collateralIndex collateral index
+     * @param trader trader address
+     * @param collateralReturned collateral amount returned to trader (collateral precision)
+     */
+    event CounterTradeCollateralReturned(
+        ITradingStorage.Id orderId,
+        uint8 indexed collateralIndex,
+        address indexed trader,
+        uint256 collateralReturned
+    );
+
+    error PendingOrderNotOpen();
 }

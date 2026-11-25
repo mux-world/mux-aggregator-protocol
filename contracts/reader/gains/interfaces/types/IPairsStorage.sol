@@ -18,7 +18,8 @@ interface IPairsStorage {
         mapping(uint256 => GroupLiquidationParams) groupLiquidationParams;
         mapping(uint256 => FeeGroup) feeGroups;
         GlobalTradeFeeParams globalTradeFeeParams;
-        uint256[38] __gap;
+        mapping(uint16 => CounterTradeSettings) pairCounterTradeSettings;
+        uint256[37] __gap;
     }
 
     struct Pair {
@@ -69,6 +70,12 @@ interface IPairsStorage {
         uint40 endLiqThresholdP; // 1e10 (%)
         uint24 startLeverage; // 1e3
         uint24 endLeverage; // 1e3
+    }
+
+    struct CounterTradeSettings {
+        uint24 maxLeverage; // 1e3
+        uint16 feeRateMultiplier; // 1e3
+        uint216 __placeholder;
     }
 
     // Deprecated structs
