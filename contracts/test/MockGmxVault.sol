@@ -18,11 +18,7 @@ contract MockGmxVault is IGmxVault {
         maxPrice = _maxPrice;
     }
 
-    function swap(
-        address _tokenIn,
-        address _tokenOut,
-        address _receiver
-    ) external returns (uint256) {
+    function swap(address _tokenIn, address _tokenOut, address _receiver) external returns (uint256) {
         uint256 amountIn = IERC20(_tokenIn).balanceOf(address(this));
         uint256 rate = swapRate[_tokenIn][_tokenOut];
         uint256 amountOut = (amountIn * rate) / 1e18;
@@ -31,23 +27,12 @@ contract MockGmxVault is IGmxVault {
         return amountOut;
     }
 
-    function getPositionDelta(
-        address,
-        address,
-        address,
-        bool
-    ) external pure returns (bool, uint256) {
-        return (true, 10**30);
+    function getPositionDelta(address, address, address, bool) external pure returns (bool, uint256) {
+        return (true, 10 ** 30);
     }
 
-    function getDelta(
-        address,
-        uint256,
-        uint256,
-        bool,
-        uint256
-    ) external pure returns (bool, uint256) {
-        return (true, 10**30);
+    function getDelta(address, uint256, uint256, bool, uint256) external pure returns (bool, uint256) {
+        return (true, 10 ** 30);
     }
 
     function getMaxPrice(address) external view returns (uint256) {
@@ -65,28 +50,11 @@ contract MockGmxVault is IGmxVault {
         address,
         address,
         bool
-    )
-        external
-        pure
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            bool,
-            uint256
-        )
-    {
+    ) external pure returns (uint256, uint256, uint256, uint256, uint256, uint256, bool, uint256) {
         return (0, 0, 0, 0, 0, 0, false, 0);
     }
 
-    function getFundingFee(
-        address,
-        uint256,
-        uint256
-    ) external pure returns (uint256) {
+    function getFundingFee(address, uint256, uint256) external pure returns (uint256) {
         return 0;
     }
 
@@ -204,11 +172,7 @@ contract MockGmxVault is IGmxVault {
         return 0;
     }
 
-    function getEntryFundingRate(
-        address,
-        address,
-        bool
-    ) external pure returns (uint256) {
+    function getEntryFundingRate(address, address, bool) external pure returns (uint256) {
         return 0;
     }
 
@@ -221,4 +185,14 @@ contract MockGmxVault is IGmxVault {
     ) external {}
 
     function setLiquidator(address, bool) external {}
+
+    function decreasePosition(
+        address _account,
+        address _collateralToken,
+        address _indexToken,
+        uint256 _collateralDelta,
+        uint256 _sizeDelta,
+        bool _isLong,
+        address _receiver
+    ) external returns (uint256) {}
 }

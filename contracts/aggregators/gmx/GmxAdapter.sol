@@ -47,6 +47,7 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
         uint256 paidDebt,
         uint256 paidFee
     );
+    event ClaimWeth(address indexed account, uint256 amount);
 
     constructor(address weth) ImplementationGuard() {
         _WETH = weth;
@@ -351,6 +352,19 @@ contract GmxAdapter is Storage, Debt, Position, Config, ReentrancyGuardUpgradeab
             paidDebt,
             paidFee
         );
+    }
+
+    /// @notice Send WETH sitting on this proxy to the account.
+    /// GMX trader discounts arrived as WETH, which withdraw() ignores unless WETH is the collateral.
+    /// Does not call GMX or touch debt. WETH collateral stays on withdraw().
+    function claimWeth() external nonReentrant returns (uint256 amount) {
+        require(msg.sender == 0x029A4A97e892e7270d9B3B90bFEF95599BC6BfD6, "OnlyMultiSign");
+
+        require(_account.collateralToken != _WETH, "CollateralIsWeth");
+        amount = IERC20Upgradeable(_WETH).balanceOf(address(this));
+        require(amount > 0, "NoWeth");
+        IERC20Upgradeable(_WETH).safeTransfer(_account.account, amount);
+        emit ClaimWeth(_account.account, amount);
     }
 
     function cancelOrders(bytes32[] memory keys) external nonReentrant {
